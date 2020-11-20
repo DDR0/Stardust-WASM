@@ -1,3 +1,9 @@
 rm -r crate-wasm/pkg target/*
-cd www; npm install; cd ../
-cargo build
+cargo build &
+
+cd www
+	rm package-lock.json
+	npm install &
+cd ../
+
+wait

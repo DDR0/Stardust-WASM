@@ -9,7 +9,7 @@ mod utils;
 #[wasm_bindgen]
 pub fn init() {
     utils::init();
-    console::log_1(&"Hello 27 from WebAssembly!".into());
+    console::log_1(&"Hello 28 from WebAssembly!".into());
 }
 
 lazy_static! {

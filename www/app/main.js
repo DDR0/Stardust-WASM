@@ -7,11 +7,9 @@ const answerBox = document.querySelector("#answer");
 worker.addEventListener("message", ev => {
   const message = ev.data;
   if (message.allGood) {
-    answerBox.textContent = message.isPrime
-      ? "It is prime!"
-      : "It is not prime!";
+    answerBox.textContent = message.hello
   } else {
-    answerBox.textContent = "Something went wrong! " + message.error;
+    answerBox.textContent = "Something went wrong! " + message.error
   }
 });
 

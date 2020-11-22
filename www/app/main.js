@@ -1,9 +1,11 @@
+import { graphData } from './graphData.mjs'
+
 (async () => {
+	"use strict"
 	const textBox = document.querySelector('#primeTextbox');
 	const submitButton = document.querySelector('#submitButton');
 	const answerBox = document.querySelector('#answer');
 	
-	const graphData = (await import('./graphData.mjs')).graphData
 	
 	const ids = [
 		graphData.setNode({x:10, y:20, name:'node 1'}),

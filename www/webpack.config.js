@@ -6,6 +6,7 @@ const WasmPackPlugin = require("@wasm-tool/wasm-pack-plugin");
 
 const appConfig = {
   entry: "./app/main.js",
+  devtool: "cheap-source-map",
   devServer: {
     contentBase: dist
   },
@@ -26,6 +27,7 @@ const appConfig = {
 const workerConfig = {
   entry: "./worker/worker.js",
   target: "webworker",
+  devtool: "cheap-source-map",
   plugins: [
     new WasmPackPlugin({
       crateDirectory: path.resolve(__dirname, "../crate-wasm")

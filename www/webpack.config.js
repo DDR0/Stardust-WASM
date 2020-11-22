@@ -16,7 +16,7 @@ const appConfig = {
     })
   ],
   resolve: {
-    extensions: [".js"]
+    extensions: [".js", ".mjs"]
   },
   output: {
     path: dist,

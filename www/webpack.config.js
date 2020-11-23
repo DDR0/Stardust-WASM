@@ -5,14 +5,16 @@ const dist = path.resolve(__dirname, "dist");
 const WasmPackPlugin = require("@wasm-tool/wasm-pack-plugin");
 
 const appConfig = {
-  entry: "./app/main.js",
+  entry: "./app/main.mjs",
   devtool: "cheap-source-map",
   devServer: {
     contentBase: dist
   },
   plugins: [
     new HtmlWebpackPlugin({
-      template: "index.html"
+      template: "index.html",
+      inject: "head",
+      scriptLoading: "defer",
     })
   ],
   resolve: {

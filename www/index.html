@@ -1,19 +1,79 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
-  <head>
-    <meta http-equiv="Content-type" content="text/html; charset=utf-8" />
-    <title>
-      My awesome Rust, WebAssembly, Webpack and Web Worker application
-    </title>
-  </head>
-
-  <body>
-    <p>
-      Please enter a positive number under 65535 and we'll tell you if it is
-      prime!
-    </p>
-    <input type="text" id="primeTextbox" />
-    <button type="button" id="submitButton">TEST!</button>
-    <p id="answer"></p>
-  </body>
+	<head>
+		<meta charset='utf-8'>
+		<title>Large Directed Graph Editor</title>
+		<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
+		<meta name="theme-color" content="#8b4c35">
+	</head>
+	<body>
+		<div id=input-data>
+			<h2>Input</h2>
+			<ol class="code editable">
+				<template>
+					<li><slot name=text></slot></li>
+				</template>
+				
+				<li>#from-node to-node</li>
+				<li>A B</li>
+				<li></li>
+				<li>#from-node to-node edge-weight</li>
+				<li>B C 4</li>
+				<li></li>
+				<li>#from-node to-node edge-label</li>
+				<li>C A "textual label"</li>
+				<li></li>
+				<li>#Node with properties</li>
+				<li>Cat shape=box color=blue bold=yes fixed=yes image=https://placekitten.com/80/80</li>
+				<li></li>
+				<li>#from-node to-node weighted-label with property</li>
+				<li>Hand Cat 2-pats color=forestgreen</li>
+			</ol>
+			<div>Total Nodes: <span id="node-count">0</span></div>
+		</div>
+		<div id=graph>
+			<h2>Graph</h2>
+			<svg></svg>
+			<div>
+				Auto-Optimize Graph Layout:
+				<label>On <input type=radio name=optimize value=on checked></label>
+				<label>Off <input type=radio name=optimize value=off></label>
+			</div>
+		</div>
+		<div id=help>
+			<h2>Help</h2>
+			
+			<h3>Controls</h3>
+			<ul>
+				<li>Click/tap on a node to rename it.</li>
+				<li>Drag a node to move it.</li>
+				<li>Hold ctrl and drag a node to draw a new edge, or hold the first node and tap the second node.</li>
+				<li>Right-click or long-tap a node to bring up a menu to recolour, reshape, or freeze the node.</li>
+				<li>Drag on the background, use the arrow keys, or use two fingers to pan the graph.</li>
+			</ul>
+			
+			<h3>Graph Syntax</h3>
+			<ol class="code">
+				<li>#from-node to-node</li>
+				<li>A B</li>
+				<li></li>
+				<li>#from-node to-node edge-weight</li>
+				<li>B C 4</li>
+				<li></li>
+				<li>#from-node to-node edge-label</li>
+				<li>C A "textual label"</li>
+				<li></li>
+				<li>#from-node with properties</li>
+				<li>Cat shape=box color=blue bold=yes fixed=yes image=https://placekitten.com/80/80</li>
+				<li></li>
+				<li>#from-node to-node weighted-label with property</li>
+				<li>Hand Cat 2-pats color=forestgreen</li>
+			</ol>
+			<p>Any value can be quoted to allow spaces in it. Backslash escapes spaces, quotes, and other backslashes.</p>
+			
+			<h3>Tech & Limits</h3>
+			<p>While you are limited to several thousand nodes maximum, it is likely you will run into resource issues before then. If this is the case, it is recommended to move to a native solution like Dot.</p>
+			<p>This website does try to make use of all available performance, by using a WASM-based multi-threaded optimizer. However, rendering is still done on the main thread by necessity, and rendering very large SVGs can be slow.</p>
+		</div>
+	</body>
 </html>

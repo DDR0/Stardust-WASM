@@ -6,14 +6,12 @@ import("../../crate-wasm/pkg").then(wasm => {
 	const callbacks = Object.create(null)
 	callbacks.hello = _=>[wasm.hello(_)]
 	
-	let graph;
-	callbacks.useGraphData = (data)=>{
-		graph = new Uint8Array(new SharedArrayBuffer(10 * Uint8Array.BYTES_PER_ELEMENT))
+	let graphData;
+	callbacks.useGraphData = data => {
+		graphData = data
 	}
 	callbacks.optimizeGraph = ()=>{
-		console.log('a', graph)
-		wasm.optimize_graph(graph)
-		console.log('b', graph)
+		wasm.optimize_graph(...graphData)
 	}
 	
 	

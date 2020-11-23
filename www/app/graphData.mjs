@@ -33,6 +33,8 @@ export const graphData = Object.freeze(()=>{
 	//Lookups
 	const indexOf    = Object.create(null) //{label->index} map
 	const free       = { nodes:[], links:[] } //[indices] which are not alive, ie, can be re-used.
+	const nodeCount  = new Uint16Array(new SharedArrayBuffer(Uint16Array.BYTES_PER_ELEMENT)) //How many nodes exist, as an optimization to avoid processing all of them. (note: 1 element long, because only array buffers can be shared and we want to keep consistency with the rest of this interface.)
+	const linkCount  = new Uint16Array(new SharedArrayBuffer(Uint16Array.BYTES_PER_ELEMENT)) //How many links exist.
 	
 	const dump = action => {
 		console.groupCollapsed(action)
@@ -97,6 +99,8 @@ export const graphData = Object.freeze(()=>{
 		colour[index] = props.color ?? 'white'
 		bgImage[index] = props.image ?? ''
 		
+		Atomics.store(nodeCount, 0, nameId.length)
+		
 		LOG_NODE_MUTATIONS && dump(`set ${props.name}`)
 		return index //id (index) of newly entered thing
 	}
@@ -155,6 +159,7 @@ export const graphData = Object.freeze(()=>{
 		label[link] = labelId
 		weight[link] = newWeight
 		Atomics.store(lflags, link, 1)
+		Atomics.store(linkCount, 0, label.length)
 		
 		LOG_LINK_MUTATIONS && dump(`linked ${nameId[A]} → ${nameId[B]}`)
 		return link
@@ -201,9 +206,11 @@ export const graphData = Object.freeze(()=>{
 			get y() { return positionY },
 			get flags() { return flags },
 			get links() { return links },
+			get numLinks() { return numLinks },
 			get name() { return nameId },
 			get colour() { return colour },
 			get bgImage() { return bgImage },
+			get nodeCount() { return nodeCount },
 		},
 		
 		//And, nicely, for rendering.
@@ -224,6 +231,7 @@ export const graphData = Object.freeze(()=>{
 			get label() { return label },
 			get weight() { return weight },
 			get lflags() { return lflags },
+			get linkCount() { return linkCount },
 		},
 		
 		link: index => ({	

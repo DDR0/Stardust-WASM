@@ -1,5 +1,6 @@
 "use strict"
 import { graphData } from './graphData.mjs'
+import "../index.css"
 
 const $ = document.querySelector.bind(document)
 const $$ = document.querySelectorAll.bind(document)

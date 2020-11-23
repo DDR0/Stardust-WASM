@@ -13,3 +13,9 @@ pub fn init() {
 pub fn hello(name: String) -> String {
     "Hello ".to_owned() + &name + &".".to_owned()
 }
+
+#[wasm_bindgen]
+pub fn optimize_graph(buffer: &mut [u8]) {
+	buffer[0] = 10;
+    console::log_1(&"Hello from og!".into());
+}

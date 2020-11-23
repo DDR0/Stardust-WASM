@@ -25,15 +25,26 @@ import { graphData } from './graphData.mjs'
 	graphData.removeNode({index:ids[2]})
 	
 	
+	
+	const callbacks = { ok: Object.create(null), err: Object.create(null) } //callbacks
+	
+	callbacks.ok.hello = data => { answerBox.textContent = data }
+	callbacks.err.hello = msg => { answerBox.textContent = "Something went wrong! " + msg }
+	
 	const worker = new Worker('./worker.js');
-	worker.addEventListener('message', ev => {
-	  const message = ev.data;
-	  if (message.allGood) {
-	    answerBox.textContent = message.hello
-	  } else {
-	    answerBox.textContent = "Something went wrong! " + message.error
-	  }
+	worker.addEventListener('message', ({'data': {type, data, error}}) => {
+		if (error === undefined && data === undefined)
+			return console.error(`malformed message '${type}', missing data or error`)
+		if (error !== undefined && data !== undefined)
+			return console.error(`malformed message '${type}', has both data and error`)
+		
+		const callback = callbacks[data?'ok':'err'][type]
+		if (!callback) { return console.error(`unknown main event '${data?'ok':'err'}.${type}')`) }
+		callback(...(data ?? [error]))
 	});
 
-	submitButton.addEventListener('click', () => worker.postMessage(textBox.value));
+	submitButton.addEventListener('click', () => 
+		worker.postMessage({type:'hello', data:[textBox.value]}) );
+	
+	//worker.postMessage('useGraphData')
 })()

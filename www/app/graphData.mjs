@@ -5,8 +5,8 @@ export const graphData = Object.freeze(()=>{
 	//Node-A Node-B Weight Label shape=box color=blue bold=yes fixed=yes image=https://placekitten.com/80/80
 	
 	//Debugging flags.
-	const LOG_NODE_MUTATIONS = true
-	const LOG_LINK_MUTATIONS = true
+	const LOG_NODE_MUTATIONS = false
+	const LOG_LINK_MUTATIONS = false
 	
 	//Limits, basically how much memory to allocate.
 	const MAX_NODES = Math.pow(2,16) //Largely arbitrary; we allocate the array buffers large enough for this but they don't seem to take up memory until we use them. (This plays well with virtual memory?) I expect we'll start to chug drawing and optimizing at around a thousand elements anyway, well under this limit.

@@ -1,16 +1,18 @@
 import("../../crate-wasm/pkg").then(wasm => {
-  wasm.init();
-  self.addEventListener("message", ev => {
-    const name = ev.data;
-    if (!name) {
-      self.postMessage({ allGood: false, error: ev.data + " is not a number!" });
-      return;
-    }
-    try {
-      const hello = wasm.hello(name);
-      self.postMessage({ allGood: true, hello });
-    } catch (err) {
-      self.postMessage({ allGood: false, error: err.message });
-    }
-  });
-});
+	wasm.init()
+	
+	const callbacks = Object.create(null)
+	callbacks.hello = _=>[wasm.hello(_)]
+	
+	callbacks.useGraphData = (data)=>{
+		
+	}
+	
+	self.addEventListener("message", ({'data': {type, data}}) => {
+		const callback = callbacks[type]
+		if (!callback) { return console.error(`unknown worker event '${type}')`) }
+		
+		try { self.postMessage({ type, data: callback(...data) }) }
+		catch (err) { self.postMessage({ type, error: err.message }) }
+	})
+})

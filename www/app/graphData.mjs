@@ -1,4 +1,4 @@
-export const graphData = Object.freeze(()=>{
+export const graphData = Object.freeze((()=>{
 	//Nodes and links, stored in sharable data structures for web-worker
 	//interop to avoid copying memory.
 	
@@ -235,10 +235,11 @@ export const graphData = Object.freeze(()=>{
 		},
 		
 		link: index => ({	
-			get to() { return linkTo[index] },
-			get from() { return linkFrom[index] },
-			get label() { return linkLabel[index] },
-			get weight() { return linkWeight[index] },
+			get from() { return from[index] },
+			get to() { return to[index] },
+			get label() { return label[index] },
+			get weight() { return weight[index] },
+			get lflags() { return lflags[index] },
 		}),
 	}
-})()
+})())

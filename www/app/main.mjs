@@ -1,10 +1,8 @@
 "use strict"
 import { graphData } from './graphData.mjs'
-import "../index.css"
+import { link as linkUiTo } from './graphUi.mjs'
 
-const $ = document.querySelector.bind(document)
-const $$ = document.querySelectorAll.bind(document)
-
+//some test data
 const ids = [
 	graphData.setNode({x:10, y:20, name:'node 1'}),
 	graphData.setNode({x:30, y:40, name:'node 2'}),
@@ -17,13 +15,17 @@ console.log({ids})
 const a = graphData.setLink(ids[0], ids[1], 'a')
 const b = graphData.setLink('node 1', 'node 4', 'b', 2)
 const c = graphData.setLink('node 2', 'node 4')
-graphData.removeLink(a)
+setTimeout(()=>graphData.removeLink(a), 200)
 
-graphData.removeNode({name:'node 2'})
-graphData.removeNode({index:ids[2]})
+setTimeout(()=>graphData.removeNode({name:'node 2'}), 300)
+setTimeout(()=>graphData.removeNode({index:ids[2]}), 400)
 
 
+//Pass graphData to UI for display. (Communicates with web worker via shared memory in graphData.)
+linkUiTo(graphData)
 
+
+//Pass graphData to web worker for processing.
 const callbacks = { ok: Object.create(null), err: Object.create(null) } //callbacks
 callbacks.ok.hello = data => { answerBox.textContent = data }
 
@@ -54,5 +56,5 @@ callbacks.ok.ready = ()=>{
 		graphData.links.lflags,
 		graphData.links.linkCount,
 	]]})
-	window.setTimeout(()=>worker.postMessage({type:'optimizeGraph'}), 250)
+	window.setTimeout(()=>worker.postMessage({type:'optimizeGraph'}), 500)
 }

@@ -1,0 +1,49 @@
+#graph > svg {
+	border: 1px solid black;
+	--line-colour: #333;
+	--fill-colour: #fff;
+	cursor: move;
+}
+
+/* Links */
+#graph > svg .graph-link {
+	stroke: var(--line-colour);
+	stroke-width:0.2645px;
+	cursor: default;
+	user-select: none;
+}
+
+#graph > svg .graph-link > .cursor-padding { /* Make lines wider, easier to click, with a thick invisible line. */
+	stroke-width: 5px;
+	stroke: #F000;
+}
+
+/* Nodes */
+#graph > svg .graph-node {
+	cursor: pointer;
+	cursor: grab;
+	user-select: none;
+}
+#graph > svg .graph-node:hover,
+#graph > svg .graph-link:hover {
+	--line-colour: #000;
+}
+#graph > svg .graph-node:active {
+	cursor: grabbing;
+	filter: url(#dropshadow);
+}
+
+#graph > svg .graph-node > * {
+	fill: var(--fill-colour);
+	stroke: var(--line-colour);
+	stroke-width: 0.3527;
+}
+#graph > svg .graph-node > text {
+	font-family: sans-serif;
+	fill: var(--line-colour);
+	stroke: none;
+	font-size: 5.644px;
+	line-height: 50%;
+	text-align: center;
+	text-anchor: middle;
+}

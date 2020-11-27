@@ -1,3 +1,9 @@
+if (!window.SharedArrayBuffer) {
+	document.body.innerHTML = "<div><h1>Error</h1><p>Your browser does not support shared array buffers, which are required by this graphing software.</p></div>"
+	throw new ReferenceError('SharedArrayBuffer is not defined')
+} else {
+}
+
 export const graphData = Object.freeze((()=>{
 	//Nodes and links, stored in sharable data structures for web-worker
 	//interop to avoid copying memory.

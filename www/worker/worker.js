@@ -3,21 +3,6 @@
 import("../../crate-wasm/pkg").then(wasm => {
 	wasm.init()
 	
-	const callbacks = Object.create(null)
-	callbacks.hello = _=>[wasm.hello(_)]
-	
-	let graphData;
-	callbacks.useGraphData = data => {
-		graphData = data
-	}
-	callbacks.optimizeGraph = ()=>{
-		wasm.optimize_graph(...graphData)
-	}
-	
-	
-
-	
-	
 	self.addEventListener("message", ({'data': {type, data}}) => {
 		const callback = callbacks[type]
 		if (!callback) { return console.error(`unknown worker event '${type}')`) }
@@ -36,4 +21,41 @@ import("../../crate-wasm/pkg").then(wasm => {
 	})
 	
 	self.postMessage({ type:'ready' })
+	
+	
+	
+	//General callbacks.
+	
+	const callbacks = Object.create(null)
+	callbacks.hello = _=>[wasm.hello(_)]
+	
+	let graphData;
+	callbacks.useGraphData = data => {
+		graphData = data
+	}
+	
+	
+	//Run/pause layout callbacks.
+	
+	let nextCB = -1
+	//Default to a 60fps timeout if we can't hook into the animation framework.
+	let requestCallback = this.requestAnimationFrame ?? (cb=>setTimeout(cb, 16))
+	let cancelCallback = this.cancelAnimationFrame ?? clearTimeout
+	
+	callbacks.step = ()=>{
+		wasm.optimize_graph(...graphData)
+		self.postMessage({ type:'update', data:[] })
+	}
+	
+	const run = ()=>{
+		wasm.optimize_graph(...graphData)
+		self.postMessage({ type:'update', data:[] })
+		nextCB = requestCallback(run) //Last, so if step errors, stop running.
+	}
+	
+	callbacks.run = ()=>{
+		cancelCallback(nextCB) //Stop callback if already running for idempotency.
+		run();
+	}
+	callbacks.stop = ()=>cancelCallback(nextCB)
 })

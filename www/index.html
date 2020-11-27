@@ -9,10 +9,12 @@
 	<body>
 		<div id=input-data>
 			<h2>Input</h2>
+			<!-- 
 			<div>
 				<label>Name: <input id=filename></label>
 				<button title="Save">&#x1F4BE</button><button title="Load">&#x1F4C2</button>
 			</div>
+			 -->
 			<ol class="code editable" contenteditable="true">
 				<li>#from-node to-node</li>
 				<li>A B</li>
@@ -39,7 +41,7 @@
 		</div>
 		<div id=graph>
 			<h2>Graph</h2>
-			<svg xmlns="http://www.w3.org/2000/svg" width="150mm" height="100mm" viewBox="0 0 150 100">
+			<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400" viewBox="-100 -100 300 200">
 				<defs>
 					<!-- Adapted from the standard Inkscape arrow. -->
 					<marker id="Arrow1Lend" inkscape:stockid="Arrow1Lend" orient="auto" style="overflow:visible;">
@@ -64,6 +66,15 @@
 					</filter>
 					
 					<!--We can't use <template> in SVG, so we'll store our templates here instead.-->
+					<g id="graph-link-templates">
+						<!-- 0. unidirectional link -->
+						<g class="graph-link">
+							<path d="m 129,235 19,-26" class="cursor-padding" />
+							<path d="m 129,235 19,-26" style="marker-end:url(#Arrow1Lend)" />
+							<text x="23.95" y="72.57">Link Name</text>
+						</g>
+					</g>
+					
 					<g id="graph-node-templates">
 						<!-- 0. circle node -->
 						<g class="graph-node">
@@ -86,14 +97,6 @@
 						<!-- 3. text node -->
 						<g class="graph-node">
 							<text x="23.95" y="72.57">Text Node</text>
-						</g>
-					</g>
-					
-					<g id="graph-link-templates">
-						<!-- 0. unidirectional link -->
-						<g class="graph-link">
-							<path d="m 129,235 19,-26" class="cursor-padding" />
-							<path d="m 129,235 19,-26" style="marker-end:url(#Arrow1Lend)" />
 						</g>
 					</g>
 				</defs>

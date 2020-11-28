@@ -4,6 +4,7 @@
 	--line-colour: #666;
 	--fill-colour: #eee;
 	cursor: move;
+	user-select: none;
 }
 
 /* Links */
@@ -12,6 +13,14 @@
 	stroke-width: 0.4px;
 	cursor: default;
 	user-select: none;
+}
+
+#graph > svg[dragging] > * {
+	pointer-events: none; /*Drag over other stuff while dragging.*/
+}
+
+#graph-layer-links {
+	pointer-events: none; /*Graph links have no interaction atm.*/
 }
 
 #graph > svg .graph-link > .cursor-padding { /* Make lines wider, easier to click, with a thick invisible line. */
@@ -23,7 +32,6 @@
 #graph > svg .graph-node {
 	cursor: pointer;
 	cursor: grab;
-	user-select: none;
 }
 #graph > svg .graph-node:hover,
 #graph > svg .graph-link:hover {

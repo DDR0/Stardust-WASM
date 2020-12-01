@@ -55,7 +55,7 @@ pub fn optimize_graph(
 			NODE_FORCES[i_].x = 0.0; //Unweight the force vector and zero it so we can just iterate through in the set loop.
 			NODE_FORCES[i_].y = 0.0;
 			if flags.get_index(i)&0b11 != 0b01 { continue } //Skip moving dead or frozen source node.
-			for j in 0_u32..node_count.get_index(0) as u32 {
+			for j in 0..node_count.get_index(0) as u32 {
 				if i == j { continue } //skip self
 				if flags.get_index(j)&0b1 != 0b1 { continue } //Skip dead nodes.
 				if (x.get_index(i) - x.get_index(j)).abs() + PADDING >= IDEAL_NODE_DISTANCE //Cheap square test. π/4=78% accurate!

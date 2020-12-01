@@ -72,6 +72,14 @@ export const link = newGraphData => {
 	svg.addEventListener('mouseleave', svgDeactivated)
 	svg.addEventListener('wheel',      svgWheel)
 	svg.currentScale = 1.5
+	
+	TextMutationHandler.observe($('#input-data ol'), {
+		subtree: true,
+		childList: true,
+		characterData: true,
+	})
+	
+	rescanInput()
 }
 
 let paintPending = false
@@ -275,3 +283,101 @@ const svgWheel = evt => {
 	//Also don't scroll.
 	evt.preventDefault()
 }
+
+
+
+
+////////////////////////
+//  Graph Text Input  //
+////////////////////////
+
+const TextMutationHandler = new MutationObserver((mutations/*, observer*/)=>{
+	mutations.forEach(({type, target, addedNodes, removedNodes}) => {
+		console.log('mutation', {type, target, addedNodes, removedNodes})
+		
+		//const baseOl = target.closest('ol.code')
+		const baseLi = target.closest('ol.code > li')
+		
+		addedNodes.forEach(addedNode => {
+			const base = addedNode.closest('li, ol')
+			if (base === baseLi) { syncFromInputLine(baseLi) }
+			if (base === baseOl) { throw new Error('Weird edit detected.') }
+		})
+		
+		//baseLi instanceof HTMLLIElement //true
+		removedNodes.forEach(removedNode => {
+			if (removedNode !== baseLi) {
+				if(baseLi) {
+					syncFromInputLine(baseLi)
+				} else {
+					throw new Error('Weird deletion detected.')
+				}
+			} else {
+				graphData.note /////////////////todo
+			}
+		})
+	})
+	
+	graphData.removeUnreferencedElements()
+})
+
+
+//God bless https://www.debuggex.com/.
+//OK, so this doesn't work I think because every time we match for
+//parameters (ie, colour=green) we *don't* match the other parameters.
+//Listing all the permutations would be a ridiculous fix. So, todo,
+//break this out into loops and logic.
+const sinAgainstAllProgrammingWhichParsesAnInputLineAndReportsErrors = 
+	/^#(?<comment>.*)$|^(?<node1>(?:".+"|\\[\s=]|[^\s=])+)(?:(?:\s+shape=(?<shape>[^\s]+)|\s+colou?r=(?<nodeColour>[^\s]+)|\s+bold=(?<bold>[^\s]+)|\s+fixed=(?<fixed>[^\s]+)|\s+(?<imageURL>data:image\/[^\s]+))+|\s+(?<node2>(?:".+"|\\[\s=]|[^\s=])+)(?:\s+(?<linkWeight>\d*))?(?:\s+(?<linkName>(?:".+"|\\[\s|]|[^\s=])*))?(?:\s+colou?r=(?<linkColour>[^\s]*))?)?(?:\s*?(?<error>.*)?)$/u
+
+const syncFromInputLine = entry => {
+	//Annotate entry with the following data, for future use.
+	//{
+	//	index: The ID of the underlying graph data. Doesn't have anything to do with the line numbers.
+	//	type: 'node', 'link', or 'comment'. (Note that links may summon the nodes they need to connect.)
+	//	parsedData: null | { (note: all nullable, but node or to/from will be defined)
+	//		node = str node name
+	//		from = str node name
+	//		to = str node name
+	//		shape = int shape id (0 to 3)
+	//		colour = str css colour
+	//		bold = bool
+	//		fixed = bool
+	//		image = str [data] url
+	//	}
+	//	error: str, false if the line text has been successfully parsed into the parsedData structure. Note that parseData is cached.
+	//	comment: str, for type=comment
+	//}
+	
+	const data = {}
+	const line = entryToText(entry).trim()
+	if (!line) {
+		data.type = 'comment'
+		data.comment = ''
+	} else {
+		const components = sinAgainstAllProgrammingWhichParsesAnInputLineAndReportsErrors.exec(line)
+		if (!components) {
+			console.error(`Could not parse input line at all.\n${line}`)
+			data.error = "Invalid syntax."
+		} else {
+			console.log(entry, line)
+			console.log(components)
+		}
+	}
+	
+	//console.log({data})
+}
+
+const rescanInput = () =>
+	$$('#input-data ol > li').forEach(syncFromInputLine)
+
+
+const entryToText = node =>
+	Array.from(node.childNodes).reduce((accum, node) => {
+		switch (true) {
+			case node instanceof Text: return accum + node.textContent
+			case node instanceof HTMLImageElement: return `${accum} ${node.src} `
+			case typeof node === 'string': return accum + node
+			default: return accum + entryToText(node)
+		}
+	}, '')

@@ -28,6 +28,7 @@ export const graphData = Object.freeze((()=>{
 	const nameId     = [] //str, node ids
 	const colour     = [] //str, css colour
 	const bgImage    = [] //str, [data?] url
+	const inputNodes = [] //Set(<ol>), containing the texts partially describing this node.
 	
 	//Link Properties:
 	const from   = new Uint16Array(new SharedArrayBuffer(MAX_LINKS * Uint16Array.BYTES_PER_ELEMENT)) //num, index of linked-from node
@@ -35,6 +36,7 @@ export const graphData = Object.freeze((()=>{
 	const label  = [] //str, name, NOT an ID unlike nodes
 	const weight = new Float32Array(new SharedArrayBuffer(MAX_LINKS * Float32Array.BYTES_PER_ELEMENT)) //num, link weight (1 is "normal")
 	const lflags = new Uint8Array(new SharedArrayBuffer(MAX_LINKS * Uint8Array.BYTES_PER_ELEMENT)) //1 bool is alive
+	const inputLinks = [] ///Set(<ol>), containing the texts partially describing this link.
 	
 	//Lookups
 	const indexOf    = Object.create(null) //{label->index} map
@@ -105,6 +107,8 @@ export const graphData = Object.freeze((()=>{
 		colour[index] = props.color ?? 'white'
 		bgImage[index] = props.image ?? ''
 		
+		inputNodes[index] = inputNodes[index] ?? new Set()
+		
 		Atomics.store(nodeCount, 0, nameId.length)
 		
 		LOG_NODE_MUTATIONS && dump(`set ${props.name}`)
@@ -119,6 +123,8 @@ export const graphData = Object.freeze((()=>{
 			name = nameId[index]
 		}
 		if (index === undefined) { throw new TypeError('Bad index or name to remove.') }
+		
+		if(inputNodes[index].size) { throw new Error('Can\'t remove node in use by input.') }
 		
 		//Mark the object as dead and then move it to the graveyard.
 		//First, don't have the worker do any more processing on this
@@ -144,7 +150,9 @@ export const graphData = Object.freeze((()=>{
 		LOG_NODE_MUTATIONS && dump(`removed ${name}`)
 	}
 	
-	const setLink = (A, B, labelId='', newWeight=1) => {
+	
+	
+	const setLink = (A, B, text='', newWeight=1) => {
 		if (typeof A === 'string') { A = indexOf[A] }
 		if (typeof B === 'string') { B = indexOf[B] }
 		
@@ -162,8 +170,9 @@ export const graphData = Object.freeze((()=>{
 			links[B*MAX_LINKS_PER_NODE + numLinks[B]++] = link
 		}
 		
-		label[link] = labelId
+		label[link] = text
 		weight[link] = newWeight
+		inputLinks[link] = inputLinks[link] ?? new Set()
 		Atomics.store(lflags, link, 1)
 		Atomics.store(linkCount, 0, label.length)
 		
@@ -173,6 +182,7 @@ export const graphData = Object.freeze((()=>{
 	
 	const removeLink = link => {
 		if (typeof link !== 'number') { throw new TypeError("Unlink requires a numeric link ID.") }
+		if(inputLinks[link].size) { throw new Error('Can\'t remove link in use by input.') }
 		
 		Atomics.store(lflags, link, 0) //do this first
 		free.links.push(link)
@@ -202,9 +212,40 @@ export const graphData = Object.freeze((()=>{
 		LOG_LINK_MUTATIONS && dump(`unlinked ${nameId[A]} → ${nameId[B]}`)
 	}
 	
-	return {
+	
+	const dirty = { nodes:new Set(), links:new Set() }
+	const noteInputNode = (index, domElement) => {
+		inputNodes[index].add(domElement)
+		dirty.nodes.add(index)
+	}
+	const noteInputLink = (index, domElement) => {
+		inputLinks[index].add(domElement)
+		dirty.links.add(index)
+	}
+	const removeUnreferencedElements = () => {
+		for (const link of dirty.links) {
+			for (const input of inputLinks[link]) {
+				if (!input.parentNode) { inputLinks[link].delete(input) }
+			}
+			if (!inputLinks[link].size) {
+				removeLink(link)
+			}
+		}
+		
+		for (const node of dirty.nodes) {
+			for (const input of inputNodes[node]) {
+				if (!input.parentNode) { inputNodes[node].delete(input) }
+			}
+			if (!inputNodes[node].size && !numLinks[node]) {
+				removeNode({index:node})
+			}
+		}
+	}
+	
+	
+	return Object.freeze({
 		//Expose methods for working with the graph data.
-		setNode, removeNode, setLink, removeLink,
+		setNode, setLink, noteInputNode, noteInputLink, removeUnreferencedElements,
 		
 		//Expose the linear graph data for processing.
 		nodes: {
@@ -247,5 +288,5 @@ export const graphData = Object.freeze((()=>{
 			get weight() { return weight[index] },
 			get lflags() { return lflags[index] },
 		}),
-	}
+	})
 })())

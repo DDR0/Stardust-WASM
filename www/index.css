@@ -3,3 +3,7 @@ body {
 	flex-direction: row;
 	background: lightgrey;
 }
+
+#help {
+	width: 2.5in;
+}

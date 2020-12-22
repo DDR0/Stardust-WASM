@@ -22,7 +22,7 @@ export const graphData = Object.freeze((()=>{
 	//Node Properties:
 	const positionX  = new Float32Array(new SharedArrayBuffer(MAX_NODES * Float32Array.BYTES_PER_ELEMENT)) //num, location
 	const positionY  = new Float32Array(new SharedArrayBuffer(MAX_NODES * Float32Array.BYTES_PER_ELEMENT)) //num, location
-	const flags      = new Uint8Array(new SharedArrayBuffer(MAX_NODES * Uint8Array.BYTES_PER_ELEMENT)) //1 bool is alive, 2 bool is immovable? 4 bool is bold? 8..256 are unused
+	const flags      = new Uint8Array(new SharedArrayBuffer(MAX_NODES * Uint8Array.BYTES_PER_ELEMENT)) //1 bool is alive, 2 bool is immovable? 4 bool is bold? 8-16 are shape, and 32..256 are unused
 	const links      = new Uint16Array(new SharedArrayBuffer(MAX_NODES * MAX_LINKS_PER_NODE * Uint16Array.BYTES_PER_ELEMENT)) //2D array of link indices this element has
 	const numLinks   = new Uint8Array(new SharedArrayBuffer(MAX_NODES * Uint8Array.BYTES_PER_ELEMENT)) //how many links this element has
 	const nameId     = [] //str, node ids
@@ -93,8 +93,8 @@ export const graphData = Object.freeze((()=>{
 		const index = props.index
 		indexOf[props.name] = index //Populate indexOf map if we're creating.
 		
-		positionX[index] = props.x ?? 0
-		positionY[index] = props.y ?? 0
+		positionX[index] = props.x ?? props.hintX ?? 0//300+(Math.random()*2-1)*100
+		positionY[index] = props.y ?? props.hintY ?? 0//200+(Math.random()*2-1)*100
 		Atomics.store(flags, index, 0
 			| true<<0 //is alive - true, because we're doing that here, and we just filled all the shared memory the web worker can see.
             | props.fixed<<1 || flags[index] & 1<<1 //node is fixed, it doesn't move

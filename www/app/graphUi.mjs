@@ -283,7 +283,8 @@ const svgWheel = evt => {
 	//Also don't scroll.
 	evt.preventDefault()
 }
-
+$('#graph svg').currentTranslate.x = 300*devicePixelRatio
+$('#graph svg').currentTranslate.y = 200*devicePixelRatio
 
 
 
@@ -295,8 +296,12 @@ const TextMutationHandler = new MutationObserver((mutations/*, observer*/)=>{
 	mutations.forEach(({type, target, addedNodes, removedNodes}) => {
 		console.log('mutation', {type, target, addedNodes, removedNodes})
 		
-		//const baseOl = target.closest('ol.code')
-		const baseLi = target.closest('ol.code > li')
+		const baseLi = target.closest
+			? target.closest              ('ol.code > li')
+			: target.parentElement.closest('ol.code > li') //Text nodes don't have the closest attribute.
+		const baseOl = baseLi
+			? baseLi.parentNode
+			: target.matches('ol.code') ? target : null
 		
 		addedNodes.forEach(addedNode => {
 			const base = addedNode.closest('li, ol')
@@ -310,7 +315,7 @@ const TextMutationHandler = new MutationObserver((mutations/*, observer*/)=>{
 				if(baseLi) {
 					syncFromInputLine(baseLi)
 				} else {
-					throw new Error('Weird deletion detected.')
+					console.warn('Unexpected node deleted.', removedNode)
 				}
 			} else {
 				graphData.note /////////////////todo
@@ -318,19 +323,58 @@ const TextMutationHandler = new MutationObserver((mutations/*, observer*/)=>{
 		})
 	})
 	
+	//TODO: Right now, we're just ignoring the diff and rescanning everything. Don't do that, use the diff so editing is snappy.
+	rescanInput()
+	
 	graphData.removeUnreferencedElements()
 })
 
 
-//God bless https://www.debuggex.com/.
-//OK, so this doesn't work I think because every time we match for
-//parameters (ie, colour=green) we *don't* match the other parameters.
-//Listing all the permutations would be a ridiculous fix. So, todo,
-//break this out into loops and logic.
-const sinAgainstAllProgrammingWhichParsesAnInputLineAndReportsErrors = 
-	/^#(?<comment>.*)$|^(?<node1>(?:".+"|\\[\s=]|[^\s=])+)(?:(?:\s+shape=(?<shape>[^\s]+)|\s+colou?r=(?<nodeColour>[^\s]+)|\s+bold=(?<bold>[^\s]+)|\s+fixed=(?<fixed>[^\s]+)|\s+(?<imageURL>data:image\/[^\s]+))+|\s+(?<node2>(?:".+"|\\[\s=]|[^\s=])+)(?:\s+(?<linkWeight>\d*))?(?:\s+(?<linkName>(?:".+"|\\[\s|]|[^\s=])*))?(?:\s+colou?r=(?<linkColour>[^\s]*))?)?(?:\s*?(?<error>.*)?)$/u
+//Bless https://www.debuggex.com/.
+const pattern = {
+	comment: /^\s*$|^\s*?#(?<text>.*?)\s*$/u, //Lines that begin with #, or empty lines, are comments. Whitspace-insensitive. 
+	node: /(?<node>"(?:\\"|[^"])+?"|(?:\\ |[^\s])+)/ug, //A node is one attribute in a line. Such as a graph node or a node's attributes. (Links are entries with two nodes.)
+	attribute: /^(?<key>(?:\\=|[^=])+)=(?<value>(?:\\=|[^=])+)$/u, //Attributes are things separated with an = sign.
+}
+
+//Each line can be one of the following.
+const dataType = Object.freeze({
+	error:   Symbol('error'),
+	comment: Symbol('comment'),
+	node:    Symbol('node'),
+	link:    Symbol('link'),
+})
 
 const syncFromInputLine = entry => {
+	const data = parseInputLine(entry)
+	console.log(data)
+	
+	switch (data.type) {
+		case dataType.node:
+			entry.setAttribute('class', 'node')
+			data.name = data.nodes[0] //assign all defaults here, or we'll get stale attributes
+			entry.setAttribute('graphNodeID',
+				graphData.setNode(data)
+			)
+		break;
+		case dataType.link:
+			entry.setAttribute('class', 'link')
+			data.nodes.forEach(name=>graphData.setNode({name}))
+			graphData.setLink(data.nodes[0], data.nodes[1], data.label, data.weight)
+		break;
+		case dataType.comment:
+			entry.setAttribute('class', 'comment')
+		break;
+		case dataType.error:
+			entry.setAttribute('class', 'error')
+		break;
+		default:
+			throw new Error(`Switch was nonexhaustive for ${data.type}. Add it above!`)
+	}
+	
+}
+
+const parseInputLine = entry => {
 	//Annotate entry with the following data, for future use.
 	//{
 	//	index: The ID of the underlying graph data. Doesn't have anything to do with the line numbers.
@@ -349,23 +393,151 @@ const syncFromInputLine = entry => {
 	//	comment: str, for type=comment
 	//}
 	
-	const data = {}
-	const line = entryToText(entry).trim()
-	if (!line) {
-		data.type = 'comment'
-		data.comment = ''
-	} else {
-		const components = sinAgainstAllProgrammingWhichParsesAnInputLineAndReportsErrors.exec(line)
-		if (!components) {
-			console.error(`Could not parse input line at all.\n${line}`)
-			data.error = "Invalid syntax."
-		} else {
-			console.log(entry, line)
-			console.log(components)
+	const text = entryToText(entry)
+	
+	const comment = pattern.comment.exec(text)
+	if (comment) return {
+		text,
+		type: dataType.comment,
+		comment: comment.groups.text || '',
+		errors: [],
+	}
+	
+	const elements = Array.from(text.matchAll(pattern.node))
+	if (!(elements && elements.length)) return {
+		text,
+		type: dataType.error,
+		errors: [{start: 0, end: text.length, message: "Line not understood."}],
+	}
+	
+	const data = {
+		text,
+		type: dataType.node,
+		nodes: [],
+		errors: [],
+	}
+	
+	const addNode = name =>
+		data.nodes.push(
+			(name.startsWith('"') && name.endsWith('"'))
+				? name.slice(1, -1)
+				: name
+		)
+	
+	const addProperty = (key, value, elementMatch, attributeMatch) => {
+		if (typeof value === 'string') {
+			[key, value] = (key.startsWith('"') && value.endsWith('"'))
+				? [key.slice(1), value.slice(-1)]
+				: [key, value]
+			value = (value.startsWith('"') && value.endsWith('"'))
+				? value.slice(1,-1)
+				: value
+		}
+		if (key === 'color') { key = 'colour' } //Fix America.
+		
+		if (key === "shape") {
+			const shapes = ["circle", "box", "lozenge", "text"]
+			const shapeIndex = shapes.indexOf(value)
+			if (~shapeIndex) {
+				data[key] = shapeIndex
+			} else {
+				data.errors.push({
+					start: elementMatch.index + attributeMatch.groups.key.length + '='.length, 
+					end: attributeMatch.groups.value.length, 
+					message: `Unknown shape, ${value}. Available shapes are ${shapes.join(', ')}.`,
+				})
+			}
+			
+			return
+		}
+		
+		if (key === "bold" || key === "fixed") {
+			//odd entries are true, even false
+			const booleanStrings = ["yes", "no", "y", "n", "true", "false", "t", "f"]
+			const index = booleanStrings.indexOf(value)
+			if (~index) {
+				data[key] = !(index%2)
+			} else {
+				data.errors.push({
+					start: elementMatch.index + attributeMatch.groups.key.length + '='.length, 
+					end: attributeMatch.groups.value.length, 
+					message: `Unknown value for ${key}, ${value}. Must be t[rue]/F[alse]/y[es]/n[o].`,
+				})
+			}
+			
+			return
+		}
+		
+		data[key] = value
+		
+		const knownKeys = new Set(["weight", "label", "shape", "colour", "bold", "fixed", "image"])
+		if (!knownKeys.has(key)) {
+			data.errors.push({
+				start: elementMatch.index, 
+				end: attributeMatch.groups.key.length, 
+				message: `Unrecognised key, ${key}. Available keys are ${Array.from(knownKeys).join(', ')}.`,
+			})
 		}
 	}
 	
-	//console.log({data})
+	elements.forEach((element, index) => {
+		//First, check if the element is the correct type for its position.
+		const attribute = element.groups.node.match(pattern.attribute)
+		if (index === 0) { //First element must be a node name.
+			if (attribute) {
+				data.errors.push({
+					start: element.index, 
+					end: element[0].length, 
+					message: "Line must start with a node, not an attribute set with =. (Try \\=?)",
+				})
+			} else {
+				data.nodes.push(element.groups.node)
+			}
+		} else if (index === 1) { //Second element can be a node or an attribute.
+			//If it's a node, then this line is a link.
+			if (attribute) {
+				addProperty(attribute.groups.key, attribute.groups.value, element, attribute)
+			} else {
+				data.type = dataType.link
+				data.nodes.push(element.groups.node)
+			}
+		} else if(!( //If the third or fourth element could be a positional parameter, assign it approprately.
+			   index > 1 && data.type === dataType.node
+			|| index > 2 && (!data.weight && !data.label)
+			|| index > 3
+		)) {
+			if (attribute) { //If we're in position 2 or 3, assign weight or label
+				addProperty(attribute.groups.key, attribute.groups.value, element, attribute)
+			} else {
+				if (index === 2) {
+					const weight = parseFloat(element.groups.node)
+					if (isNaN(weight)) {
+						addProperty("label", element.groups.node, element, attribute)
+					} else {
+						addProperty("weight", weight, element, attribute)
+					}
+				} else if (index === 3) {
+					addProperty("label", element.groups.node, element, attribute)
+				} else {
+					throw new Error('Invalid slot. (This should never happen, fix the outer-most if in this function.)')
+				}
+			}
+		} else { //Anything after the positional parameters must be an attribute.
+			if (attribute) {
+				addProperty(attribute.groups.key, attribute.groups.value, element, attribute)
+			} else if (element.groups.node.startsWith('data:image/')) {
+				addProperty('image', element.groups.node)
+			} else {
+				data.errors.push({
+					start: element.index, 
+					end: element[0].length, 
+					message: "Attributes must have an equals sign, like key=value.",
+				})
+			}
+		}
+	})
+	
+	return data
 }
 
 const rescanInput = () =>

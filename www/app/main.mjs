@@ -20,7 +20,7 @@ import * as graphUi from './graphUi.mjs'
 //setTimeout(()=>graphData.removeNode({name:'node 2'}), 300)
 //setTimeout(()=>graphData.removeNode({index:ids[2]}), 400)
 
-setTimeout(()=>graphOptimizer.postMessage({type: 'run'}), 0)//750)
+//setTimeout(()=>graphOptimizer.postMessage({type: 'run'}), 0)//750)
 
 
 //Pass graphData to UI for display. (Communicates with web worker via shared memory in graphData.)

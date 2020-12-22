@@ -142,7 +142,7 @@ const render = ()=>{
 		const { x:nodesX, y:nodesY } = graphData.nodes
 		const linkLenX = nodesX[data.from]-nodesX[data.to]
 		const linkLenY = nodesY[data.from]-nodesY[data.to]
-		const linkLen = Math.sqrt(Math.pow(linkLenX, 2) + Math.pow(linkLenY, 2))
+		const linkLen = Math.sqrt(Math.pow(linkLenX, 2) + Math.pow(linkLenY, 2)) || 0.01
 		const llenFrom = nodeShapeRadii[graphData.nodes.flags[data.from]>>3&3]
 		const llenTo   = nodeShapeRadii[graphData.nodes.flags[data.to  ]>>3&3]
 		const pathd = `M${//SVG path - move to x/y, line to x/y.

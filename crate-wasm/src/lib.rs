@@ -62,8 +62,10 @@ pub fn optimize_graph(
 				|| (y.get_index(i) - y.get_index(j)).abs() + PADDING >= IDEAL_NODE_DISTANCE { continue } //Skip distant nodes.
 				
 				//calculate expansion force - it's a cold, lonely universe
-				let len_x = x.get_index(i) - x.get_index(j);
-				let len_y = y.get_index(i) - y.get_index(j);
+				let mut len_x = x.get_index(i) - x.get_index(j);
+				let mut len_y = y.get_index(i) - y.get_index(j);
+				if len_x == 0.0 { len_x = ((i%2>>0) as f32-0.5)/10.0 } //Avoid 0 distances resulting in NaN.
+				if len_y == 0.0 { len_y = ((i%4>>1) as f32-0.5)/10.0 }
 				let len = (len_x.powf(2.0) + len_y.powf(2.0)).sqrt(); //a²+b²=c²
 				if len + PADDING >= IDEAL_NODE_DISTANCE { continue }
 				

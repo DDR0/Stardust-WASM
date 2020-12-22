@@ -304,7 +304,9 @@ const TextMutationHandler = new MutationObserver((mutations/*, observer*/)=>{
 			: target.matches('ol.code') ? target : null
 		
 		addedNodes.forEach(addedNode => {
-			const base = addedNode.closest('li, ol')
+			const base = addedNode.closest
+				? addedNode.closest              ('li, ol')
+				: addedNode.parentElement.closest('li, ol')
 			if (base === baseLi) { syncFromInputLine(baseLi) }
 			if (base === baseOl) { throw new Error('Weird edit detected.') }
 		})

@@ -1,62 +1,99 @@
 "use strict"
 
-import { graphData } from './graphData.mjs'
-import * as graphUi from './graphUi.mjs'
+if (!window.SharedArrayBuffer) {
+	document.body.innerHTML = `
+		<div>
+			<h1>Software Failure</h1>
+			<p>Your browser does not appear to support shared array buffers, which are required by <em>Stardust</em>. Perhaps try another one?</p>
+			<p>Guru Meditation ${(crossOriginIsolated << 1) | (isSecureContext << 0)}</p>
+		</div>
+	`
+	console.log();
+	throw new ReferenceError('SharedArrayBuffer is not defined')
+}
 
-//some test data
-//const ids = [
-//	graphData.setNode({x:10, y:20, name:'node 0'}),
-//	graphData.setNode({x:30, y:40, name:'node 1'}),
-//	graphData.setNode({x:50, y:60, name:'node 2'}),
-//	graphData.setNode({x:70, y:80, name:'node 1'}),
-//	graphData.setNode({x:90, y:99, name:'node 3'}),
-//]
-//
-//const a = graphData.setLink(ids[0], ids[1], 'a')
-//const b = graphData.setLink('node 0', 'node 2', 'b', 2)
-//const c = graphData.setLink('node 1', 'node 2', 'c')
-//setTimeout(()=>graphData.removeLink(a), 200)
-//
-//setTimeout(()=>graphData.removeNode({name:'node 2'}), 300)
-//setTimeout(()=>graphData.removeNode({index:ids[2]}), 400)
+//import { graphData } from './graphData.mjs'
+import * as ui from './ui.mjs'
 
-//setTimeout(()=>graphOptimizer.postMessage({type: 'run'}), 0)//750)
+const ice = Object.freeze
+const MAX_SCREEN_RES = ice({ X: 3840, Y: 2160 })
 
+const returnBuffer = new Uint8Array(new SharedArrayBuffer(
+	MAX_SCREEN_RES.X * MAX_SCREEN_RES.Y * Uint8Array.BYTES_PER_ELEMENT
+))
 
-//Pass graphData to UI for display. (Communicates with web worker via shared memory in graphData.)
-graphUi.link(graphData)
+const callbacks = { ok: Object.create(null), err: Object.create(null) } //Default, shared callbacks.
+callbacks.ok.hello = ui.pong
+//callbacks.ok.update = graphUi.repaint
+callbacks.ok.pong = ui.pong
 
+const reservedCores = 2; //One for main thread, one for the render thread.
+const availableCores = Math.max(1, (navigator.hardwareConcurrency || 4) - reservedCores); //Safari doesn't support hardwareConcurrency as of 2022-06-09.
 
-//Pass graphData to web worker for processing.
-const callbacks = { ok: Object.create(null), err: Object.create(null) } //callbacks
-callbacks.ok.hello = data => { answerBox.textContent = data }
-callbacks.ok.update = graphUi.repaint
+const renderCore = wrapForCallbacks(
+	new Worker('./renderWorker.js'),
+	{
+		err: { ...callbacks.err }, 
+		ok: {
+			...callbacks.ok,
+			ready: ()=>{
+				graphOptimizer.postMessage({type:'hello', data:[]});
+			},
+		},
+	}
+)
 
-const graphOptimizer = new Worker('./worker.js');
-graphOptimizer.addEventListener('message', ({'data': {type, data, error}}) => {
-	if (error !== undefined && data !== undefined)
-		return console.error(`malformed message '${type}', has both data and error`)
+let logicCores = Array(availableCores).fill().map((_,i)=>{
+	return new Promise((resolve, reject) => {
+		const graphOptimizer = wrapForCallbacks(
+			new Worker('./logicWorker.js'),
+			{
+				err: { ...callbacks.err }, 
+				ok: {
+					...callbacks.ok,
+					ready: ()=>{
+						resolve(graphOptimizer)
+						
+						//graphOptimizer.postMessage({type:'useGraphData', data:[[
+						//	graphData.nodes.x,
+						//	graphData.nodes.y,
+						//	graphData.nodes.flags,
+						//	graphData.nodes.links,
+						//	graphData.nodes.numLinks,
+						//	graphData.nodes.nodeCount,
+						//	graphData.links.from,
+						//	graphData.links.to,
+						//	graphData.links.lflags,
+						//	graphData.links.linkCount,
+						//]]})
+						graphOptimizer.postMessage({type:'run'})
+						graphOptimizer.postMessage({type:'hello', data:[]});
+					}
+				}
+			},
+		)
+	});
+})
+
+logicCores = await Promise.allSettled(logicCores).then(results => 
+	results.filter(result => result.status === "fulfilled"))
+
+console.info(`Loaded ${logicCores.length}/${availableCores} logic cores.`)
+
+function wrapForCallbacks(worker, callbacks) {
+	//Wrap a worker for our error-handling callback style, ie, callbacks.ok.whatever = ()=>{}.
 	
-	const callback = 
-		callbacks[error!==undefined?'err':'ok'][type]
-		?? (error!==undefined 
-			? console.error 
-			: console.error(`unknown main event '${error!==undefined?'err':'ok'}.${type}')`) )
-	callback(...(data ?? [error]))
-});
-
-callbacks.ok.ready = ()=>{
-	graphOptimizer.postMessage({type:'useGraphData', data:[[
-		graphData.nodes.x,
-		graphData.nodes.y,
-		graphData.nodes.flags,
-		graphData.nodes.links,
-		graphData.nodes.numLinks,
-		graphData.nodes.nodeCount,
-		graphData.links.from,
-		graphData.links.to,
-		graphData.links.lflags,
-		graphData.links.linkCount,
-	]]})
-	graphOptimizer.postMessage({type:'run'})
+	worker.addEventListener('message', ({'data': {type, data, error}}) => {
+		if (error !== undefined && data !== undefined)
+			return console.error(`malformed message '${type}', has both data and error`)
+		
+		const callback = 
+			callbacks[error!==undefined?'err':'ok'][type]
+			?? (error!==undefined 
+				? console.error 
+				: console.error(`unknown main event '${error!==undefined?'err':'ok'}.${type}')`) )
+		callback(...(data ?? [error]))
+	});
+	
+	return worker
 }

@@ -1,6 +1,6 @@
-# `rust-wasm-worker-template`
+# DDR's __Stardust__
 
-[![Build Status](https://travis-ci.org/VictorGavrish/rust-wasm-worker-template.svg?branch=master)](https://travis-ci.org/VictorGavrish/rust-wasm-worker-template)
+A nacent falling sand game, based off `rust-wasm-worker-template`. Thank you Victor Gavrish, without whom we never would have got this running in the first place.
 
 > **Kickstart your Rust, WebAssembly, Webpack and Web Worker project!**
 

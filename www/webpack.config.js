@@ -10,7 +10,11 @@ const appConfig = {
 	entry: "./app/main.mjs",
 	devtool: "cheap-source-map",
 	devServer: {
-		contentBase: dist
+		contentBase: dist,
+		headers: {
+			"Cross-Origin-Opener-Policy": "same-origin",
+			"Cross-Origin-Embedder-Policy": "require-corp",
+		},
 	},
 	plugins: [
 		new HtmlWebpackPlugin({
@@ -20,6 +24,10 @@ const appConfig = {
 		}),
 		new MiniCssExtractPlugin(),
 	],
+	experiments: {
+		topLevelAwait: true,
+		asyncWebAssembly: true
+	},
 	resolve: {
 		extensions: [".js", ".mjs"]
 	},
@@ -44,8 +52,8 @@ const appConfig = {
 	}
 };
 
-const workerConfig = {
-	entry: "./worker/worker.js",
+const logicWorkerConfig = {
+	entry: "./worker/logicWorker.js",
 	target: "webworker",
 	devtool: "cheap-source-map",
 	plugins: [
@@ -58,13 +66,32 @@ const workerConfig = {
 	},
 	output: {
 		path: dist,
-		filename: "worker.js"
+		filename: "logicWorker.js"
 	},
 	experiments: {
-		//[DDR 2020-11-20] asyncWebAssembly is broken by webpack 5.
-		//(See https://github.com/rustwasm/wasm-bindgen/issues/2343)
-		syncWebAssembly: true
+		asyncWebAssembly: true
 	}
 };
 
-module.exports = [appConfig, workerConfig];
+const renderWorkerConfig = {
+	entry: "./worker/renderWorker.js",
+	target: "webworker",
+	devtool: "cheap-source-map",
+	plugins: [
+		new WasmPackPlugin({
+			crateDirectory: path.resolve(__dirname, "../crate-wasm")
+		})
+	],
+	resolve: {
+		extensions: [".js", ".wasm"]
+	},
+	output: {
+		path: dist,
+		filename: "renderWorker.js"
+	},
+	experiments: {
+		asyncWebAssembly: true
+	}
+};
+
+module.exports = [appConfig, logicWorkerConfig, renderWorkerConfig];

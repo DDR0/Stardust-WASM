@@ -6,7 +6,7 @@ import("../../crate-wasm/pkg").then(wasm => {
 	self.addEventListener("message", ({'data': {type, data}}) => {
 		const callback = callbacks[type]
 		if (!callback) { return console.error(`unknown worker event '${type}')`) }
-		
+		console.log('worker msg', type, data)
 		try {
 			const retval = callback(...(data??[]))
 			if (retval !== undefined) {
@@ -15,7 +15,6 @@ import("../../crate-wasm/pkg").then(wasm => {
 		}
 		catch (err) {
 			console.error(err)
-			debugger
 			self.postMessage({ type, error: err.message })
 		}
 	})
@@ -27,7 +26,10 @@ import("../../crate-wasm/pkg").then(wasm => {
 	//General callbacks.
 	
 	const callbacks = Object.create(null)
-	callbacks.hello = _=>[wasm.hello(_)]
+	callbacks.hello = _=>{
+		console.log('logic worker hello');
+		return [wasm.hello()]
+	}
 	
 	let graphData;
 	callbacks.useGraphData = data => {
@@ -48,9 +50,10 @@ import("../../crate-wasm/pkg").then(wasm => {
 	}
 	
 	const run = ()=>{
-		wasm.optimize_graph(...graphData)
-		self.postMessage({ type:'update', data:[] })
-		nextCB = requestCallback(run) //Last, so if step errors, stop running.
+		console.log('run');
+		//wasm.optimize_graph(...graphData)
+		//self.postMessage({ type:'update', data:[] })
+		//nextCB = requestCallback(run) //Last, so if step errors, stop running.
 	}
 	
 	callbacks.run = ()=>{

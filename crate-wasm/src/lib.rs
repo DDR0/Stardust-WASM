@@ -1,26 +1,29 @@
 //#![no_std]
 use wasm_bindgen::prelude::*;
-use web_sys::console;
-
-use js_sys::{Float32Array, Uint16Array, Uint8Array};
+use js_sys::{Uint8Array};
 
 mod utils;
 
 //Limits of array data coming from JS. Mirrored in graphData.mjs.
-const MAX_NODES: usize = 1<<16;
-//const MAX_LINKS: usize = 1<<16;
-//const LINKS_PER_NODE: usize = 32;
-
-
-const IDEAL_NODE_DISTANCE: f32 = 80.0; //svg css px, effectively arbitrary.
-const SLOWDOWN_FACTOR: f32 = 30.0;
-const PADDING: f32 = 0.1; //svg css px
-
+//const MAX_NODES: usize = 1<<16;
+////const MAX_LINKS: usize = 1<<16;
+////const LINKS_PER_NODE: usize = 32;
+//
+//
+//const IDEAL_NODE_DISTANCE: f32 = 80.0; //svg css px, effectively arbitrary.
+//const SLOWDOWN_FACTOR: f32 = 30.0;
+//const PADDING: f32 = 0.1; //svg css px
 
 #[wasm_bindgen]
 pub fn init() { utils::init() }
 
+#[wasm_bindgen]
+pub fn hello() -> f32 {
+	return 42.0;
+}
 
+
+/*
 #[wasm_bindgen]
 pub fn optimize_graph(
 	x: Float32Array,
@@ -107,6 +110,6 @@ pub fn optimize_graph(
 		}
 	}
 }
-
+*/
 
 //console::log_1(&format!("dbg: {:}→{:} {:?}", i,j, &NODE_FORCES[i_]).into());

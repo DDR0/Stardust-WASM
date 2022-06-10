@@ -353,11 +353,12 @@ const syncFromInputLine = entry => {
 	
 	switch (data.type) {
 		case dataType.node:
-			entry.setAttribute('class', 'node')
+			if (entry.parsedData) {
+				data.index = entry.parsedData.index
+			}
+			entry.parsedData = data
 			data.name = data.nodes[0] //assign all defaults here, or we'll get stale attributes
-			entry.setAttribute('graphNodeID',
-				graphData.setNode(data)
-			)
+			data.index = graphData.setNode(data)
 		break;
 		case dataType.link:
 			entry.setAttribute('class', 'link')

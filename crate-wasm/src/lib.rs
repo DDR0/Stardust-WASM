@@ -1,6 +1,9 @@
 //#![no_std]
 use wasm_bindgen::prelude::*;
-use js_sys::{Uint8Array};
+use js_sys::{Uint8Array, Uint16Array, Uint32Array, Object};
+use js_sys::Reflect;
+use js_sys::Atomics;
+
 
 mod utils;
 
@@ -20,6 +23,41 @@ pub fn init() { utils::init() }
 #[wasm_bindgen]
 pub fn hello() -> f32 {
 	return 42.0;
+}
+
+fn get(obj: &JsValue, key: &str) -> JsValue {
+	Reflect::get(obj, &JsValue::from_str(key)).expect("key not found")
+}
+
+#[wasm_bindgen]
+pub fn process_particle(world: &JsValue, thread_id: i32, x: u32, y: u32) -> f64 {
+	//const getVal = (array, {x, y}, stride=1) => {
+	//	return array[(x+y*world.bounds.y[0]) * stride]
+	//}
+	//const setVal = (array, {x, y}, value, stride=1) => {
+	//	array[(x+y*world.bounds.y[0]) * stride] = value
+	//}
+	
+	//console::log_1(&"Hello using web-sys".into());
+	
+	let index_at = |x: u32, y: u32| -> u32 {
+		let line_length = get(&get(&get(world, "bounds"), "y"), "0").as_f64().expect("world.bounds.y not found") as u32;
+		x + y*line_length
+	};
+	
+	if 
+		Atomics::compare_exchange(
+			&get(&get(world, "particles"), "lock"),
+			index_at(x, y),
+			0,
+			thread_id
+		).expect("locking mechanism failed") != 0
+	{
+		//Object locked; just bail.
+		return 0.0;
+	}
+	
+	return 0.0;
 }
 
 

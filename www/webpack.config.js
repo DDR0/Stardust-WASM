@@ -53,7 +53,7 @@ const appConfig = {
 };
 
 const logicWorkerConfig = {
-	entry: "./worker/logicWorker.js",
+	entry: "./worker/logicWorker.mjs",
 	target: "webworker",
 	devtool: "cheap-source-map",
 	plugins: [
@@ -66,15 +66,16 @@ const logicWorkerConfig = {
 	},
 	output: {
 		path: dist,
-		filename: "logicWorker.js"
+		filename: "logicWorker.mjs"
 	},
 	experiments: {
+		topLevelAwait: true,
 		asyncWebAssembly: true
 	}
 };
 
 const renderWorkerConfig = {
-	entry: "./worker/renderWorker.js",
+	entry: "./worker/renderWorker.mjs",
 	target: "webworker",
 	devtool: "cheap-source-map",
 	plugins: [
@@ -87,9 +88,10 @@ const renderWorkerConfig = {
 	},
 	output: {
 		path: dist,
-		filename: "renderWorker.js"
+		filename: "renderWorker.mjs"
 	},
 	experiments: {
+		topLevelAwait: true,
 		asyncWebAssembly: true
 	}
 };

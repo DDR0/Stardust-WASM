@@ -1,6 +1,6 @@
 //#![no_std]
 use wasm_bindgen::prelude::*;
-use js_sys::{Uint8Array, Uint16Array, Uint32Array, Object};
+use js_sys::{Uint8Array, Uint16Array, Uint32Array, Int32Array, Object};
 use js_sys::Reflect;
 use js_sys::Atomics;
 
@@ -25,8 +25,34 @@ pub fn hello() -> f32 {
 	return 42.0;
 }
 
-fn get(obj: &JsValue, key: &str) -> JsValue {
+fn gets(obj: &JsValue, key: &str) -> JsValue {
 	Reflect::get(obj, &JsValue::from_str(key)).expect("key not found")
+}
+
+fn getf(obj: &JsValue, key: f64) -> JsValue {
+	Reflect::get(obj, &JsValue::from_f64(key)).expect("key not found")
+}
+
+struct Rand {
+	seed: u32,
+}
+
+impl Rand {
+	pub fn new(seed: u32) -> Rand {
+		Rand {
+			seed: (seed + 1) % 2147483647
+		}
+	}
+	fn next(&mut self) -> u32 { 
+		self.seed = self.seed * 16807 % 2147483647;
+		self.seed
+	}
+	pub fn float(&mut self) -> f64 { 
+		(self.next() - 1) as f64 / 2147483646.0
+	}
+	pub fn range(&mut self, min: i32, max: i32) -> i32 { 
+		((self.float() * (max-min) as f64) as i32 + min) as i32
+	}
 }
 
 #[wasm_bindgen]
@@ -41,13 +67,15 @@ pub fn process_particle(world: &JsValue, thread_id: i32, x: u32, y: u32) -> f64 
 	//console::log_1(&"Hello using web-sys".into());
 	
 	let index_at = |x: u32, y: u32| -> u32 {
-		let line_length = get(&get(&get(world, "bounds"), "y"), "0").as_f64().expect("world.bounds.y not found") as u32;
+		let line_length = getf(&gets(&gets(world, "bounds"), "y"), 0.).as_f64().expect("world.bounds.y not found") as u32;
 		x + y*line_length
 	};
 	
+	let rng = Rand::new(5);
+	
 	if 
 		Atomics::compare_exchange(
-			&get(&get(world, "particles"), "lock"),
+			&gets(&gets(world, "particles"), "lock"),
 			index_at(x, y),
 			0,
 			thread_id

@@ -92,7 +92,7 @@ function processFrame(thisFrameTime) {
 	// 2. Can we do any move?
 	
 	while (1) {
-		didProcessParticle |= wasm.process_particle(world, thisWorkerID, x, y)
+		didProcessParticle |= wasm.process_particle(world, thisWorkerID, x, y) //don't forget to pass in time_delta
 		
 		//Check if we're at bounds.
 		if (x + delta < 0 || x + delta >= worldX) { //OK, we're off the end of a row.

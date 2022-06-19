@@ -76,9 +76,9 @@ function processFrame(thisFrameTime) {
 	const timeDelta = Math.max(1000/500, Math.min(thisFrameTime - lastFrameTime, 1000/10))
 	lastFrameTime = thisFrameTime
 	
-	let x = 0;
-	let y = 0;
-	let delta = 1;
+	let delta = thisWorkerID % 2 ? 1 : -1;
+	let x = delta > 0 ? 0 : world.bounds.x[0]-1;
+	let y = delta > 0 ? 0 : world.bounds.y[0]-1;
 	let stage = 0; //0: Try to move where you ideally want to. 1: (Disabled for now.) Move where you can.
 	const numStages = 1; //The first stage is stage 0, like with arrays.
 	const worldX = world.bounds.x[0];
@@ -93,7 +93,7 @@ function processFrame(thisFrameTime) {
 	
 	while (1) {
 		didProcessParticle |= wasm.process_particle(world, thisWorkerID, x, y) //don't forget to pass in time_delta
-		
+		return;
 		//Check if we're at bounds.
 		if (x + delta < 0 || x + delta >= worldX) { //OK, we're off the end of a row.
 			if (y + delta < 0 || y + delta >= worldY) { //We're off the end of a column too.

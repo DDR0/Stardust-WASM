@@ -12,7 +12,7 @@ if (!window.SharedArrayBuffer) {
 }
 
 if (!Atomics.waitAsync) { //Firefox doesn't support asyncWait as of 2022-06-12.
-	console.warn('Atomics.waitAsync not available; glitching may occur.')
+	console.warn('Atomics.waitAsync not available; glitching may occur when resized.')
 }
 
 //import { graphData } from './graphData.mjs'
@@ -34,6 +34,7 @@ const world = Object.freeze({
 		x: new Int32Array(new SharedArrayBuffer(1 * Int32Array.BYTES_PER_ELEMENT)), 
 		y: new Int32Array(new SharedArrayBuffer(1 * Int32Array.BYTES_PER_ELEMENT)),
 	}),
+	wrappingBehaviour: new Uint8Array(new SharedArrayBuffer(4 * Uint8Array.BYTES_PER_ELEMENT)), //top, left, bottom, right: Set to a particle type. 0 or 1.
 	particles: Object.freeze({
 		__proto__: null,
 		lock:        new Int32Array    (new SharedArrayBuffer(totalPixels * Int32Array.    BYTES_PER_ELEMENT)), //Is this particle locked for processing? 0=no, 1=yes.
@@ -60,6 +61,7 @@ const world = Object.freeze({
 
 window.world = world //For debugging.
 
+Array.prototype.fill.call(world.wrappingBehaviour, 1) //0 is air, 1 is wall. Default to wall.
 
 
 ///////////////////////////

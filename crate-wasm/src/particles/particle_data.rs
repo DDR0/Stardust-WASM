@@ -1,4 +1,4 @@
-/// A particle in the simulation.
+/// Backing data access for the particles in the simulation.
 ///
 /// The reason this exists is so that we can automatically lock particles
 /// upon acquisition, and release that lock when the particle is destructed.
@@ -23,10 +23,18 @@ fn getf(obj: &JsValue, key: f64) -> JsValue {
 }
 
 
+/// Basic functionality all particles implement.
 #[enum_dispatch]
 pub trait ParticleData {
-	fn replace(&mut self, dest: &mut RealParticle);
-	fn swap(&mut self, dest: &mut RealParticle);
+	fn neighbour(&self, deltaX: i32, deltaY: i32) -> Option<BaseParticle>;
+	
+	// Technically, these should consume self too, thus invalidating both
+	// objects, but neighbour's output seems to maintain a reference to us
+	// so we can't move self out of the scope there. Luckily, JS-stuff uses
+	// references to that, so we don't actually have to mutate anything. I
+	// feel that something in the design here is, generally speaking, wrong.
+	fn replace(&self, dest: BaseParticle);
+	fn swap(&self, dest: BaseParticle);
 	
 	fn type_id(&self) -> u8;
 	fn set_type_id(&mut self, val: u8);
@@ -54,17 +62,27 @@ pub trait ParticleData {
 	fn set_scratch2(&mut self, val: u64);
 }
 
+/// Backing data for a real particle in the simulation.
 #[derive(Debug)]
 pub struct RealParticle<'w> {
 	world: &'w JsValue,
+	thread_id: i32,
 	x: i32, //position from top-left
 	y: i32,
 	w: i32, //w/h of play field, used for dereferencing
 	h: i32, //origin is always 0,0
 }
 
+/// Backing data for a fake particle, used to represent pixels outside the gamefield.
+///
+/// By default, the fake backing data will dummy out any writes, and report 0 for reads.
+/// The one exception is for type_id, which is initializable to a value and reports that.
 #[derive(Debug)]
-pub struct FakeParticle {
+pub struct FakeParticle<'w> {
+	world: &'w JsValue,
+	thread_id: i32,
+	x: i32,
+	y: i32,
 	type_id: u8,
 }
 
@@ -73,10 +91,17 @@ impl<'w> RealParticle<'w> {
 }
 
 impl<'w> ParticleData for RealParticle<'w> {
-	fn replace(&mut self, dest: &mut RealParticle) {
+	fn neighbour(&self, delta_x: i32, delta_y: i32) -> Option<BaseParticle> {
+		assert!(
+			self.x != 0 || self.y != 0, 
+			"neighbour({},{}) must have a non-zero delta", self.x, self.y,
+		);
+		new_particle_data(self.world, self.thread_id, self.x+delta_x, self.y+delta_y)
+	}
+	fn replace(&self, dest: BaseParticle) {
 		todo!()
 	}
-	fn swap(&mut self, dest: &mut RealParticle) {
+	fn swap(&self, dest: BaseParticle) {
 		todo!()
 	}
 	
@@ -181,9 +206,17 @@ impl<'w> ParticleData for RealParticle<'w> {
 }
 
 
-impl ParticleData for FakeParticle {
-	fn replace(&mut self, dest: &mut RealParticle) {}
-	fn swap(&mut self, dest: &mut RealParticle) {}
+impl<'w> ParticleData for FakeParticle<'w> {
+	fn neighbour(&self, delta_x: i32, delta_y: i32) -> Option<BaseParticle> {
+		assert!(
+			self.x != 0 || self.y != 0, 
+			"neighbour({},{}) must have a non-zero delta", self.x, self.y,
+		);
+		new_particle_data(self.world, self.thread_id, self.x+delta_x, self.y+delta_y)
+	}
+	
+	fn replace(&self, dest: BaseParticle) {}
+	fn swap(&self, dest: BaseParticle) {}
 
 	fn type_id(&self) -> u8 { self.type_id }
 	fn set_type_id(&mut self, _: u8) {}
@@ -213,22 +246,27 @@ impl ParticleData for FakeParticle {
 
 
 #[enum_dispatch(ParticleData)]
+#[derive(Debug)]
 pub enum BaseParticle<'w> {
 	Real(RealParticle<'w>),
-	Fake(FakeParticle),
+	Fake(FakeParticle<'w>),
 }
 
 
 //Maybe this would better be called lock_particle or get_and_lock_particle?
-pub fn new_particle(world: &JsValue, thread_id: i32, x: i32, y: i32) -> Option<BaseParticle> {
+pub fn new_particle_data(world: &JsValue, thread_id: i32, x: i32, y: i32) -> Option<BaseParticle> {
 	if x < 0 { 
 		return Some(FakeParticle {
+			world, thread_id,
+			x, y,
 			type_id: getf(&gets(world, "wrappingBehaviour"), 0.)
 				.as_f64().expect("world.wrappingBehaviour[0] not found") as u8
 		}.into())
 	}
 	if y < 0 {
 		return Some(FakeParticle {
+			world, thread_id,
+			x, y,
 			type_id: getf(&gets(world, "wrappingBehaviour"), 3.)
 				.as_f64().expect("world.wrappingBehaviour[3] not found") as u8
 		}.into())
@@ -242,19 +280,23 @@ pub fn new_particle(world: &JsValue, thread_id: i32, x: i32, y: i32) -> Option<B
 	
 	if x >= w {
 		return Some(FakeParticle {
+			world, thread_id,
+			x, y,
 			type_id: getf(&gets(world, "wrappingBehaviour"), 1.)
 				.as_f64().expect("world.wrappingBehaviour[1] not found") as u8
 		}.into())
 	}
 	if y >= h {
 		return Some(FakeParticle {
+			world, thread_id,
+			x, y,
 			type_id: getf(&gets(world, "wrappingBehaviour"), 2.)
 				.as_f64().expect("world.wrappingBehaviour[2] not found") as u8
 		}.into())
 	}
 	
 	let p = RealParticle {
-		world,
+		world, thread_id,
 		x,y,w,h,
 	};
 	
@@ -265,16 +307,9 @@ pub fn new_particle(world: &JsValue, thread_id: i32, x: i32, y: i32) -> Option<B
 			0,
 			thread_id,
 		).expect(&format!("Locking mechanism failed (vs obtaining the lock failing) at {},{}.", x,y).as_str())
-		
 	{
-		0 => { 
-			//console::log_1(&format!("locked particle {},{} on {}", x,y, thread_id).into());
-			Some(BaseParticle::Real(p))
-		}
-		_ => { 
-			console::log_1(&format!("failed to lock particle {},{} on {}", x,y, thread_id).into());
-			None
-		}
+		0 => Some(BaseParticle::Real(p)),
+		_ => None,
 	}
 }
 

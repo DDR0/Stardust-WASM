@@ -59,9 +59,9 @@ const world = Object.freeze({
 	})
 })
 
-window.world = world //For debugging.
+window.world = world //Enable easy script access for debugging.
 
-Array.prototype.fill.call(world.wrappingBehaviour, 1) //0 is air, 1 is wall. Default to wall.
+Array.prototype.fill.call(world.wrappingBehaviour, 1) //0 is air, 1 is wall. Default to wall. See particles.rs:hydrate_with_data() for the full list.
 
 
 ///////////////////////////

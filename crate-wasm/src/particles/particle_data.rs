@@ -26,7 +26,7 @@ fn getf(obj: &JsValue, key: f64) -> JsValue {
 /// Basic functionality all particles implement.
 #[enum_dispatch]
 pub trait ParticleData {
-	fn neighbour(&self, deltaX: i32, deltaY: i32) -> Option<BaseParticle>;
+	fn neighbour(&self, delta_x: i32, delta_y: i32) -> Result<BaseParticle, ()>;
 	
 	// Technically, these should consume self too, thus invalidating both
 	// objects, but neighbour's output seems to maintain a reference to us
@@ -91,7 +91,7 @@ impl<'w> RealParticle<'w> {
 }
 
 impl<'w> ParticleData for RealParticle<'w> {
-	fn neighbour(&self, delta_x: i32, delta_y: i32) -> Option<BaseParticle> {
+	fn neighbour(&self, delta_x: i32, delta_y: i32) -> Result<BaseParticle, ()> {
 		assert!(
 			self.x != 0 || self.y != 0, 
 			"neighbour({},{}) must have a non-zero delta", self.x, self.y,
@@ -207,7 +207,7 @@ impl<'w> ParticleData for RealParticle<'w> {
 
 
 impl<'w> ParticleData for FakeParticle<'w> {
-	fn neighbour(&self, delta_x: i32, delta_y: i32) -> Option<BaseParticle> {
+	fn neighbour(&self, delta_x: i32, delta_y: i32) -> Result<BaseParticle, ()> {
 		assert!(
 			self.x != 0 || self.y != 0, 
 			"neighbour({},{}) must have a non-zero delta", self.x, self.y,
@@ -254,9 +254,9 @@ pub enum BaseParticle<'w> {
 
 
 //Maybe this would better be called lock_particle or get_and_lock_particle?
-pub fn new_particle_data(world: &JsValue, thread_id: i32, x: i32, y: i32) -> Option<BaseParticle> {
+pub fn new_particle_data(world: &JsValue, thread_id: i32, x: i32, y: i32) -> Result<BaseParticle, ()> {
 	if x < 0 { 
-		return Some(FakeParticle {
+		return Ok(FakeParticle {
 			world, thread_id,
 			x, y,
 			type_id: getf(&gets(world, "wrappingBehaviour"), 0.)
@@ -264,7 +264,7 @@ pub fn new_particle_data(world: &JsValue, thread_id: i32, x: i32, y: i32) -> Opt
 		}.into())
 	}
 	if y < 0 {
-		return Some(FakeParticle {
+		return Ok(FakeParticle {
 			world, thread_id,
 			x, y,
 			type_id: getf(&gets(world, "wrappingBehaviour"), 3.)
@@ -279,7 +279,7 @@ pub fn new_particle_data(world: &JsValue, thread_id: i32, x: i32, y: i32) -> Opt
 		.as_f64().expect("world.bounds.y not found") as i32;
 	
 	if x >= w {
-		return Some(FakeParticle {
+		return Ok(FakeParticle {
 			world, thread_id,
 			x, y,
 			type_id: getf(&gets(world, "wrappingBehaviour"), 1.)
@@ -287,7 +287,7 @@ pub fn new_particle_data(world: &JsValue, thread_id: i32, x: i32, y: i32) -> Opt
 		}.into())
 	}
 	if y >= h {
-		return Some(FakeParticle {
+		return Ok(FakeParticle {
 			world, thread_id,
 			x, y,
 			type_id: getf(&gets(world, "wrappingBehaviour"), 2.)
@@ -308,8 +308,8 @@ pub fn new_particle_data(world: &JsValue, thread_id: i32, x: i32, y: i32) -> Opt
 			thread_id,
 		).expect(&format!("Locking mechanism failed (vs obtaining the lock failing) at {},{}.", x,y).as_str())
 	{
-		0 => Some(BaseParticle::Real(p)),
-		_ => None,
+		0 => Ok(BaseParticle::Real(p)),
+		_ => Err(()),
 	}
 }
 

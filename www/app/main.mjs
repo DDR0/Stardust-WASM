@@ -109,6 +109,8 @@ new ResizeObserver(([{target: canvas}]) => {
 	}
 	
 	function updateCanvasSize() {
+		canvas.width = 3;
+		canvas.height = 4;
 		console.log(`canvas resized to ${canvas.width}×${canvas.height} – TODO: copy pixel data here.`)
 		
 		world.bounds.x[0] = canvas.width;

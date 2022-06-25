@@ -90,7 +90,7 @@ function processFrame() {
 	
 	while (1) {
 		didProcessParticle |= wasm.process_particle(world, thisWorkerID, x, y) //don't forget to pass in time_delta
-		return;
+		
 		//Check if we're at bounds.
 		if (x + delta < 0 || x + delta >= worldX) { //OK, we're off the end of a row.
 			if (y + delta < 0 || y + delta >= worldY) { //We're off the end of a column too.
@@ -106,7 +106,7 @@ function processFrame() {
 				delta = delta * -1
 			} else {
 				y = y + delta
-				x = x + (worldX*delta) + delta
+				x = x - (worldX*delta) + delta
 			}
 		} else {
 			x = x + delta

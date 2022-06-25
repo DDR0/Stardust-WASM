@@ -82,7 +82,15 @@ impl<'w> Processable<'w> for Dust<'w> {
 		//rng.range(0,3);
 		
 		let next_loc = hydrate_with_data(self.base.neighbour(drift_direction, -1)?);
-		if next_loc.weight()? > self.weight()? || next_loc.phase() == Phase::Solid {
+		
+		//If landing on a solid thing, or on a liquid that we would float in, do nothing.
+		if next_loc.phase() == Phase::Solid || next_loc.weight()? >= self.weight()? { //iron, a solid, floats on mercury, a liquid
+			return Err(())
+		}
+		
+		//Whatever we are moving through, apply a speed penalty for the density of the substance.
+		//TODO: Make this use initiative vs a stochastic process.
+		if next_loc.weight()? / self.weight()? < Math::random() {
 			return Err(())
 		}
 		

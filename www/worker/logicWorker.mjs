@@ -1,7 +1,10 @@
 "use strict"
 
+console.log("B0")
 const {rng} = await import("./rng.mjs")
+console.log("B-1")
 const wasm = await import("../../crate-wasm/pkg/index.js");
+console.log("B-2")
 
 wasm.init()
 
@@ -15,9 +18,6 @@ let thisWorkerIndex = 0
 let totalWorkers = 1
 let thisWorkerID = -1
 let world
-
-let mainLoopID = -1
-let lastFrameTime = 0;
 
 const callbacks = Object.freeze({
 	__proto__: null,
@@ -33,17 +33,9 @@ const callbacks = Object.freeze({
 		thisWorkerID = _thisWorkerIndex + 1
 		world = _world
 		
-		// performance.now() is not the same unit of time as the processFrame callback
-		// argument in Chrome, so we pre-pump one frame to get accurate results.
-		mainLoopID = requestFramerateCallback(thisFrameTime=>{
-			lastFrameTime = thisFrameTime;
-			mainLoopID = requestFramerateCallback(processFrame)
-		});
+		console.log('starting', thisWorkerID)
+		processFrame()
 	},
-	
-	stop: () => {
-		cancelFramerateCallback(mainLoopID)
-	}
 })
 
 addEventListener("message", ({'data': {type, data}}) => {
@@ -64,14 +56,19 @@ addEventListener("message", ({'data': {type, data}}) => {
 	}
 })
 
+console.log("B1")
 postMessage({ type:'ready' }) //Let the main thread know this worker is up, ready to receive data.
+console.log("B2")
 
 
 
-
-function processFrame(thisFrameTime) {
-	mainLoopID = requestFramerateCallback(processFrame)
+let lastFrameTime = 0;
+function processFrame() {
+	Atomics.add(world.workersRunning, 0, 1) //Can't use a bitmask because may have >32 cores.
+	const currentTick = Atomics.load(world.tick, 0)
+	console.log(`#${thisWorkerID} working on tick ${currentTick}`)
 	
+	const thisFrameTime = performance.now()
 	//Minimum and maximum framerate delta within which to try to run the simulation.
 	const timeDelta = Math.max(1000/500, Math.min(thisFrameTime - lastFrameTime, 1000/10))
 	lastFrameTime = thisFrameTime
@@ -115,48 +112,22 @@ function processFrame(thisFrameTime) {
 			x = x + delta
 		}
 	}
+	
+	//Next steps:
+	//Update on world.workersRunning at start and end of processing. (add and subtract 1)
+	//if (world.workersRunning)
+	//Set self to 0.
+	
+	
+	console.log(`#${thisWorkerID} done tick ${currentTick}`)
+	if (Atomics.waitAsync) {
+		Promise.resolve(
+			Atomics.waitAsync(world.tick, 0, currentTick).value
+		).then(processFrame)
+		Atomics.sub(world.workersRunning, 0, 1)
+	} else {
+		Atomics.sub(world.workersRunning, 0, 1)
+		Atomics.wait(world.tick, 0, currentTick)
+		Promise.resolve().then(processFrame)
+	}
 }
-
-
-
-/*
-const runParticleAt = (()=>{
-	const getVal = (array, {x, y}, stride=1) => {
-		return array[(x+y*world.bounds.y[0]) * stride]
-	}
-	const setVal = (array, {x, y}, value, stride=1) => {
-		array[(x+y*world.bounds.y[0]) * stride] = value
-	}
-	
-	const allFields = Object.values(world.particles).flatMap(value=>
-		typeof value === "object"
-			? Object.values(value)
-			: [value]
-	)
-	
-	const swapParticles = (pos1, pos2)=>{
-		fields.forEach(field=>{
-			const tmp = getVal(field, pos)
-		})
-	};
-	
-	const particleBehaviours = Object.freeze({
-		__proto__: null,
-		0: () => false, //empty (should become air)
-		1: () => false, //wall, never changes
-		2: (pos) => {
-			//acquire lock
-			
-			//rng.seed((y<<8) + x + p.subpixelPosition.x)
-			
-			//release lock
-			return false;
-		}
-	})
-	
-	return (pos) =>
-		particleBehaviours[
-			getVal(world.particles.type, pos)
-		](pos)
-})()
-*/

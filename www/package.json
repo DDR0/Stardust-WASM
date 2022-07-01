@@ -12,10 +12,11 @@
     "create-rust-wasm-worker": ".bin/create-rust-wasm-worker.js"
   },
   "//": {
-    "devDependencies": "Updated to latest as of 2022-06-25."
+    "devDependencies": "Updated to latest as of 2022-06-25.",
+    "wasm-pack-plugin": "Contains some tweaks to explain and allow my misconfigurations. (Submitted to upstream.)"
   },
   "devDependencies": {
-    "@wasm-tool/wasm-pack-plugin": "1.6.x",
+    "@wasm-tool/wasm-pack-plugin": "https://github.com/DDR0/wasm-pack-plugin.git",
     "css-loader": "6.7.x",
     "html-webpack-plugin": "5.5.x",
     "mini-css-extract-plugin": "2.1.x",

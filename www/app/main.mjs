@@ -183,8 +183,10 @@ const pendingLogicCores = Array(availableCores).fill().map((_,i)=>{
 	});
 })
 
+console.log('A1')
 //Wait for our compute units to become available.
 const renderCore = await pendingRenderCore
+console.log('A2')
 const logicCores = await Promise.allSettled(pendingLogicCores)
 	.then(results => results
 		.filter(result => result.status === "fulfilled")

@@ -76,11 +76,12 @@ impl<'w> Processable<'w> for Dust<'w> {
 	fn weight(&self) -> Result<Weight, ()> { Ok(1201.0) } //kg/m³, a quartz sand
 	
 	fn run(&mut self) -> Result<(), ()> {
-		//TODO: Replace this call to JS Math.random() with rand() seeded on some random data in our scratch.
-		let drift_direction: i32 = (Math::random() * 3.0) as i32 - 1;
-		//let mut rng = Rand::new(«seed here»);
-		//rng.range(0,3);
+		// The following call to Math.random() here breaks wasm.init() in the parent worker JS.
+		// (Math::random() * 3.0) as i32 - 1;
 		
+		let mut rng = Rand::new(self.base.scratch1() as u32);
+		let drift_direction: i32 = rng.range(0,3) - 1;
+		// 
 		let next_loc = hydrate_with_data(self.base.neighbour(drift_direction, -1)?);
 		
 		//If landing on a solid thing, or on a liquid that we would float in, do nothing.
@@ -90,7 +91,7 @@ impl<'w> Processable<'w> for Dust<'w> {
 		
 		//Whatever we are moving through, apply a speed penalty for the density of the substance.
 		//TODO: Make this use initiative vs a stochastic process.
-		if next_loc.weight()? / self.weight()? < Math::random() {
+		if next_loc.weight()? / self.weight()? < rng.float() {
 			return Err(())
 		}
 		

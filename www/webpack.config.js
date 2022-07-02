@@ -9,6 +9,7 @@ const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const appConfig = {
 	entry: "./app/main.mjs",
 	devtool: "cheap-source-map",
+	mode: 'development',
 	devServer: {
 		static: {
 			directory: dist
@@ -58,6 +59,7 @@ const logicWorkerConfig = {
 	entry: "./worker/logicWorker.mjs",
 	target: "webworker",
 	devtool: "cheap-source-map",
+	mode: 'development',
 	plugins: [
 		new WasmPackPlugin({
 			crateDirectory: path.resolve(__dirname, "../crate-wasm")
@@ -80,6 +82,7 @@ const renderWorkerConfig = {
 	entry: "./worker/renderWorker.mjs",
 	target: "webworker",
 	devtool: "cheap-source-map",
+	mode: 'development',
 	plugins: [
 		new WasmPackPlugin({
 			crateDirectory: path.resolve(__dirname, "../crate-wasm")

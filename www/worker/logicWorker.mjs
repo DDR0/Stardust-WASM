@@ -1,10 +1,7 @@
 "use strict"
 
-console.log("B0")
 const {rng} = await import("./rng.mjs")
-console.log("B-1")
 const wasm = await import("../../crate-wasm/pkg/index.js");
-console.log("B-2")
 
 wasm.init()
 

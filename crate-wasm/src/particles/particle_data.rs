@@ -14,18 +14,36 @@ use js_sys::{Reflect, Atomics};
 use web_sys::console;
 use enum_dispatch::enum_dispatch;
 
+
 fn gets(obj: &JsValue, key: &str) -> JsValue {
 	Reflect::get(obj, &JsValue::from_str(key)).expect("key not found")
 }
 
 fn getf(obj: &JsValue, key: f64) -> JsValue {
-	Reflect::get(obj, &JsValue::from_f64(key)).expect("key not found")
+	Reflect::get_f64(obj, key).expect("key not found")
+}
+
+fn getu(obj: &JsValue, key: u32) -> JsValue {
+	Reflect::get_u32(obj, key).expect("key not found")
+}
+
+fn sets(obj: &JsValue, key: &str, value: f64) -> bool {
+	Reflect::set(obj, &JsValue::from_str(key), &JsValue::from_f64(value)).expect("key not found")
+}
+
+fn setf(obj: &JsValue, key: f64, value: f64) -> bool {
+	Reflect::set_f64(obj, key, &JsValue::from_f64(value)).expect("key not settable in obj")
+}
+
+fn setu(obj: &JsValue, key: u32, value: f64) -> bool {
+	Reflect::set_u32(obj, key, &JsValue::from_f64(value)).expect("key not settable in obj")
 }
 
 
 /// Basic functionality all particles implement.
 #[enum_dispatch]
 pub trait ParticleData {
+	fn is_new_tick(&mut self) -> bool; /// Returns true on the first invocation during a tick. Must be invoked at least once per tick if used. Sets particle.tick to a boolean value under the hood, true if world.tick is an even number.
 	fn neighbour(&self, delta_x: i32, delta_y: i32) -> Result<BaseParticle, ()>;
 	
 	// Technically, these should consume self too, thus invalidating both
@@ -67,10 +85,10 @@ pub trait ParticleData {
 pub struct RealParticle<'w> {
 	world: &'w JsValue,
 	thread_id: i32,
-	x: i32, //position from top-left
+	x: i32, //particle position from origin of playfield
 	y: i32,
 	w: i32, //w/h of play field, used for dereferencing
-	h: i32, //origin is always 0,0
+	//h: i32, //origin of play field is always 0,0
 }
 
 /// Backing data for a fake particle, used to represent pixels outside the gamefield.
@@ -91,6 +109,20 @@ impl<'w> RealParticle<'w> {
 }
 
 impl<'w> ParticleData for RealParticle<'w> {
+	fn is_new_tick(&mut self) -> bool {
+		let particle_tick = getf(&gets(&gets(self.world, "particles"), "tick"), self.index() as f64)
+			.as_f64().expect(&format!("particles.tick[{},{}] not found", self.x, self.y).as_str()) as i32;
+		let world_tick = getf(&gets(self.world, "tick"), 0.) //Don't need to load this via an atomic… right?
+			.as_f64().expect("world.tick access error") as i32;
+		let parity: bool = particle_tick % 2 == world_tick % 2;
+		
+		if !parity {
+			setf(&gets(&gets(self.world, "particles"), "tick"), self.index() as f64, (world_tick % 2).into());
+		}
+		
+		parity
+	}
+	
 	fn neighbour(&self, delta_x: i32, delta_y: i32) -> Result<BaseParticle, ()> {
 		assert!(
 			self.x != 0 || self.y != 0, 
@@ -207,6 +239,7 @@ impl<'w> ParticleData for RealParticle<'w> {
 
 
 impl<'w> ParticleData for FakeParticle<'w> {
+	fn is_new_tick(&mut self) -> bool { false }
 	fn neighbour(&self, delta_x: i32, delta_y: i32) -> Result<BaseParticle, ()> {
 		assert!(
 			self.x != 0 || self.y != 0, 
@@ -297,7 +330,7 @@ pub fn new_particle_data(world: &JsValue, thread_id: i32, x: i32, y: i32) -> Res
 	
 	let p = RealParticle {
 		world, thread_id,
-		x,y,w,h,
+		x,y,w,//h,
 	};
 	
 	match

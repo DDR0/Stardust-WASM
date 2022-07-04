@@ -24,16 +24,12 @@ pub fn hello() -> f32 {
 
 #[wasm_bindgen]
 pub fn process_particle(world: &JsValue, thread_id: i32, x: i32, y: i32) -> f64 {
-	//TODO: This is breaking loading somehow.
-	//
-	match new_particle_data(world, thread_id, x, y) {
-		Ok(p) => {
-			match hydrate_with_data(p).run() {
-				Ok(()) => 1.0,
-				Err(()) => 0.0, //Object couldn't or didn't run, perhaps due to another lock.
-			}
-		}
-		Err(()) => 0.0, //Object was locked; can't process it now.
+	match 
+		new_particle_data(world, thread_id, x, y)
+			.and_then(|p| hydrate_with_data(p).run())
+	{
+		Ok(()) => 1.0, //Object has advanced state, been processed.
+		Err(()) => 0.0, //Object may have encountered an error or just not run; we don't care.
 	}
 }
 

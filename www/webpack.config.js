@@ -64,7 +64,7 @@ const logicWorkerConfig = {
 	mode: "development",
 	plugins: [
 		new WasmPackPlugin({
-			crateDirectory: path.resolve(__dirname, "../crate-wasm")
+			crateDirectory: path.resolve(__dirname, "../crate-wasm"),
 		})
 	],
 	resolve: {
@@ -88,7 +88,7 @@ const renderWorkerConfig = {
 	mode: "development",
 	plugins: [
 		new WasmPackPlugin({
-			crateDirectory: path.resolve(__dirname, "../crate-wasm")
+			crateDirectory: path.resolve(__dirname, "../crate-wasm"),
 		})
 	],
 	resolve: {

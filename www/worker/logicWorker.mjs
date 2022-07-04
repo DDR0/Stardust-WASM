@@ -63,7 +63,7 @@ let lastFrameTime = 0;
 function processFrame() {
 	Atomics.add(world.workersRunning, 0, 1) //Can't use a bitmask because may have >32 cores.
 	const currentTick = Atomics.load(world.tick, 0)
-	console.log(`#${thisWorkerID} working on tick ${currentTick}`)
+	//console.log(`#${thisWorkerID} working on tick ${currentTick}`)
 	
 	const thisFrameTime = performance.now()
 	//Minimum and maximum framerate delta within which to try to run the simulation.
@@ -100,7 +100,7 @@ function processFrame() {
 				}
 				iterCounter++
 				didProcessParticle = 0
-				delta = delta * -1
+				delta = -delta //Iterate in reverse now.
 			} else {
 				y = y + delta
 				x = x - (worldX*delta) + delta
@@ -115,8 +115,10 @@ function processFrame() {
 	//if (world.workersRunning)
 	//Set self to 0.
 	
+	//Iterate only once, for testing purposes.
+	return
 	
-	console.log(`#${thisWorkerID} done tick ${currentTick}`)
+	//console.log(`#${thisWorkerID} done tick ${currentTick}`)
 	if (Atomics.waitAsync) {
 		Promise.resolve(
 			Atomics.waitAsync(world.tick, 0, currentTick).value

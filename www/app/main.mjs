@@ -53,7 +53,7 @@ const world = Object.freeze({
 		__proto__: null,
 		lock:        new Int32Array    (new SharedArrayBuffer(totalPixels * Int32Array.    BYTES_PER_ELEMENT)), //Is this particle locked for processing? 0=no, 1=yes.
 		type:        new Uint8Array    (new SharedArrayBuffer(totalPixels * Uint8Array.    BYTES_PER_ELEMENT)),
-		tick:        new Uint8Array    (new SharedArrayBuffer(totalPixels * Uint8Array.    BYTES_PER_ELEMENT)), //Stores whether last tick processed was even or odd. If this doesn't match the current tick, we know to advance the particle simulation one step.
+		tick:        new Uint8Array    (new SharedArrayBuffer(totalPixels * Uint8Array.    BYTES_PER_ELEMENT)), //Used for is_new_tick. Stores whether last tick processed was even or odd. If this doesn't match the current tick, we know to advance the particle simulation one step.
 		stage:       new Uint8Array    (new SharedArrayBuffer(totalPixels * Uint8Array.    BYTES_PER_ELEMENT)), //Particle processing step. Usually 0 = hasn't moved yet, 1 = can't move, >2 = done.
 		initiative:  new Float32Array  (new SharedArrayBuffer(totalPixels * Float32Array.  BYTES_PER_ELEMENT)), //Faster particles get more initiative to spend moving around.
 		rgba:        new Uint32Array   (new SharedArrayBuffer(totalPixels * Uint32Array.   BYTES_PER_ELEMENT)),

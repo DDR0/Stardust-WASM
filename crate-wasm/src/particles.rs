@@ -2,7 +2,7 @@ mod rand;
 pub mod particle_data;
 
 use web_sys::console;
-use js_sys::Math;
+//use js_sys::Math; //Danger; breaks webpack module loading.
 use enum_dispatch::enum_dispatch;
 
 use rand::Rand;
@@ -19,8 +19,8 @@ pub enum Phase {
 
 
 #[enum_dispatch]
-pub trait Processable<'w> {
-	fn base(self) -> BaseParticle<'w>;
+pub trait Processable {
+	fn base(&mut self) -> &mut BaseParticle;
 	
 	fn phase(&self) -> Phase;
 	fn weight(&self) -> Result<Weight, ()>; //No weight, object is unmovable.
@@ -31,12 +31,12 @@ pub trait Processable<'w> {
 
 
 #[derive(Debug)]
-pub struct Air<'w> {
-	base: BaseParticle<'w>
+pub struct Air {
+	base: BaseParticle
 }
 
-impl<'w> Processable<'w> for Air<'w> {
-	fn base(self) -> BaseParticle<'w> { self.base }
+impl Processable for Air {
+	fn base(&mut self) -> &mut BaseParticle { &mut self.base }
 	
 	fn phase(&self) -> Phase { Phase::Gas }
 	fn weight(&self) -> Result<Weight, ()> { Ok(1.185) } //kg/m³ at sea level - steel is 7900.0
@@ -48,12 +48,12 @@ impl<'w> Processable<'w> for Air<'w> {
 
 
 #[derive(Debug)]
-pub struct Wall<'w> {
-	base: BaseParticle<'w>
+pub struct Wall {
+	base: BaseParticle
 }
 
-impl<'w> Processable<'w> for Wall<'w> {
-	fn base(self) -> BaseParticle<'w> { self.base }
+impl Processable for Wall {
+	fn base(&mut self) -> &mut BaseParticle { &mut self.base }
 	
 	fn phase(&self) -> Phase { Phase::Solid }
 	fn weight(&self) -> Result<Weight, ()> { Err(()) }
@@ -65,13 +65,13 @@ impl<'w> Processable<'w> for Wall<'w> {
 
 
 #[derive(Debug)]
-pub struct Dust<'w> {
-	base: BaseParticle<'w>
+pub struct Dust {
+	base: BaseParticle
 }
 
-impl<'w> Processable<'w> for Dust<'w> {
+impl Processable for Dust {
 	//scratch1: lower 32 bits used for random seed
-	fn base(self) -> BaseParticle<'w> { self.base }
+	fn base(&mut self) -> &mut BaseParticle { &mut self.base }
 	
 	fn phase(&self) -> Phase { Phase::Solid }
 	fn weight(&self) -> Result<Weight, ()> { Ok(1201.0) } //kg/m³, a quartz sand
@@ -92,37 +92,36 @@ impl<'w> Processable<'w> for Dust<'w> {
 		}
 		
 		if initiative < 1.0 {
-			return Err(());
+			return Err(()); //Not enough juice to go anywhere.
 		}
 		
-		{
-			let drift_direction: i32 = rng.range(0,3) - 1;
-			let next_loc = hydrate_with_data(self.base.neighbour(drift_direction, -1)?);
-			
-			//If landing on a solid thing, or on a liquid that we would float in, do nothing.
-			if next_loc.phase() == Phase::Solid || next_loc.weight()? >= self.weight()? { //iron, a solid, floats on mercury, a liquid
-				return Err(())
-			}
-			
-			//Whatever we are moving through, apply a speed penalty for the density of the substance.
-			//TODO: Make this use initiative vs a stochastic process.
-			if next_loc.weight()? / self.weight()? < rng.float() {
-				return Err(())
-			}
-			
-			if drift_direction != 0 {
-				initiative -= 0.4142135623730951; //Apply an initiative penalty if we moved at an angle, because we moved more than one pixel then.
-			}
-			
-			//Can't set here because we borrowed self.base for neighbour?
-			//self.base.set_velocity_x(0.); //Just nullify velocity for now. (Approximates very high friction.)
-			//self.base.set_velocity_y(0.);
-			//self.base.swap(next_loc.base());
+		let drift_direction: i32 = rng.range(0,3) - 1;
+		let base_part = self.base.neighbour(drift_direction, -1);
+		let mut next_loc = hydrate_with_data(base_part?);
+		
+		//If landing on a solid thing, or on a liquid that we would float in, do nothing.
+		if next_loc.phase() == Phase::Solid || next_loc.weight()? >= self.weight()? { //iron, a solid, floats on mercury, a liquid
+			return Err(())
 		}
+		
+		//Whatever we are moving through, apply a speed penalty for the density of the substance.
+		//TODO: Make this use initiative vs a stochastic process.
+		if next_loc.weight()? / self.weight()? < rng.float() {
+			return Err(())
+		}
+		
+		if drift_direction != 0 {
+			initiative -= 0.4142135623730951; //Apply an initiative penalty if we moved at a 45° angle, because we moved more than one pixel then.
+		}
+		
+		//Can't set here because we borrowed self.base for neighbour?
+		self.base.set_velocity_x(0.); //Just nullify velocity for now. (Approximates very high friction.)
+		self.base.set_velocity_y(0.);
 		
 		self.base.set_initiative(initiative);
-		self.base.set_scratch1(scratch1 & 0x_FFFF_FFFF_0000_0000 | (scratch1 as u64));
+		self.base.set_scratch1(scratch1 & 0xFFFF_FFFF_0000_0000 | (scratch1 as u64));
 		
+		self.base.swap(next_loc.base());
 		//console::log_1(&format!("dbg").into());
 		
 		Ok(())
@@ -132,15 +131,15 @@ impl<'w> Processable<'w> for Dust<'w> {
 
 
 #[enum_dispatch(Processable)]
-pub enum Particle<'w> {
-	Air(Air<'w>),
-	Wall(Wall<'w>),
-	Dust(Dust<'w>),
+pub enum Particle {
+	Air(Air),
+	Wall(Wall),
+	Dust(Dust),
 }
 
 
 
-pub fn hydrate_with_data<'w>(base: BaseParticle<'w>) -> Particle<'w> {
+pub fn hydrate_with_data(base: BaseParticle) -> Particle {
 	match base.type_id() {
 		0 => Air { base }.into(),
 		1 => Wall{ base }.into(),

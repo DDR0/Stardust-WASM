@@ -1,4 +1,5 @@
 //#![no_std]
+use std::rc::Rc;
 use wasm_bindgen::prelude::*;
 // WARNING: Use of `random()` in `js_sys::Math;` silently breaks `import("../../crate-wasm/pkg/index.js")`.
 
@@ -23,9 +24,9 @@ pub fn hello() -> f32 {
 }
 
 #[wasm_bindgen]
-pub fn process_particle(world: &JsValue, thread_id: i32, x: i32, y: i32) -> f64 {
+pub fn process_particle(world: JsValue, thread_id: i32, x: i32, y: i32) -> f64 {
 	match 
-		new_particle_data(world, thread_id, x, y)
+		new_particle_data(Rc::new(world), thread_id, x, y)
 			.and_then(|p| hydrate_with_data(p).run())
 	{
 		Ok(()) => 1.0, //Object has advanced state, been processed.

@@ -9,6 +9,8 @@
 /// particle attributes, and ensures you can't access them without locking
 /// the particle they're for as well.
 
+use std::rc::Rc;
+
 use crate::JsValue;
 use js_sys::{Reflect, Atomics};
 use web_sys::console;
@@ -51,8 +53,8 @@ pub trait ParticleData {
 	// so we can't move self out of the scope there. Luckily, JS-stuff uses
 	// references to that, so we don't actually have to mutate anything. I
 	// feel that something in the design here is, generally speaking, wrong.
-	fn replace(&self, dest: BaseParticle);
-	fn swap(&self, dest: BaseParticle);
+	fn replace(&mut self, dest: &mut BaseParticle);
+	fn swap(&mut self, dest: &mut BaseParticle);
 	
 	fn type_id(&self) -> u8;
 	fn set_type_id(&mut self, val: u8);
@@ -82,8 +84,8 @@ pub trait ParticleData {
 
 /// Backing data for a real particle in the simulation.
 #[derive(Debug)]
-pub struct RealParticle<'w> {
-	world: &'w JsValue,
+pub struct RealParticle {
+	world: Rc<JsValue>,
 	thread_id: i32,
 	x: i32, //particle position from origin of playfield
 	y: i32,
@@ -96,28 +98,28 @@ pub struct RealParticle<'w> {
 /// By default, the fake backing data will dummy out any writes, and report 0 for reads.
 /// The one exception is for type_id, which is initializable to a value and reports that.
 #[derive(Debug)]
-pub struct FakeParticle<'w> {
-	world: &'w JsValue,
+pub struct FakeParticle {
+	world: Rc<JsValue>,
 	thread_id: i32,
 	x: i32,
 	y: i32,
 	type_id: u8,
 }
 
-impl<'w> RealParticle<'w> {
+impl RealParticle {
 	fn index(&self) -> u32 { (self.x+self.y*self.w) as u32 }
 }
 
-impl<'w> ParticleData for RealParticle<'w> {
+impl ParticleData for RealParticle {
 	fn is_new_tick(&mut self) -> bool {
-		let particle_tick = getf(&gets(&gets(self.world, "particles"), "tick"), self.index() as f64)
+		let particle_tick = getf(&gets(&gets(&self.world, "particles"), "tick"), self.index() as f64)
 			.as_f64().expect(&format!("particles.tick[{},{}] not found", self.x, self.y).as_str()) as i32;
-		let world_tick = getf(&gets(self.world, "tick"), 0.) //Don't need to load this via an atomic… right?
+		let world_tick = getf(&gets(&self.world, "tick"), 0.) //Don't need to load this via an atomic… right?
 			.as_f64().expect("world.tick access error") as i32;
 		let parity: bool = particle_tick % 2 == world_tick % 2;
 		
 		if !parity {
-			setf(&gets(&gets(self.world, "particles"), "tick"), self.index() as f64, (world_tick % 2).into());
+			setf(&gets(&gets(&self.world, "particles"), "tick"), self.index() as f64, (world_tick % 2).into());
 		}
 		
 		parity
@@ -128,12 +130,12 @@ impl<'w> ParticleData for RealParticle<'w> {
 			self.x != 0 || self.y != 0, 
 			"neighbour({},{}) must have a non-zero delta", self.x, self.y,
 		);
-		new_particle_data(self.world, self.thread_id, self.x+delta_x, self.y+delta_y)
+		new_particle_data(self.world.clone(), self.thread_id, self.x+delta_x, self.y+delta_y)
 	}
-	fn replace(&self, dest: BaseParticle) {
+	fn replace(&mut self, dest: &mut BaseParticle) {
 		todo!()
 	}
-	fn swap(&self, dest: BaseParticle) {
+	fn swap(&mut self, dest: &mut BaseParticle) {
 		todo!()
 	}
 	
@@ -141,7 +143,7 @@ impl<'w> ParticleData for RealParticle<'w> {
 	//World data accessors:
 	
 	fn type_id(&self) -> u8 {
-		getf(&gets(&gets(self.world, "particles"), "type"), self.index() as f64)
+		getf(&gets(&gets(&self.world, "particles"), "type"), self.index() as f64)
 			.as_f64().expect(&format!("particles.type[{},{}] not found", self.x, self.y).as_str()) as u8
 	}
 	fn set_type_id(&mut self, val: u8) {
@@ -149,7 +151,7 @@ impl<'w> ParticleData for RealParticle<'w> {
 	}
 	
 	fn stage(&self) -> u8 {
-		getf(&gets(&gets(self.world, "particles"), "stage"), self.index() as f64)
+		getf(&gets(&gets(&self.world, "particles"), "stage"), self.index() as f64)
 			.as_f64().expect(&format!("particles.stage[{},{}] not found", self.x, self.y).as_str()) as u8
 	}
 	fn set_stage(&mut self, val: u8) {
@@ -157,7 +159,7 @@ impl<'w> ParticleData for RealParticle<'w> {
 	}
 	
 	fn initiative(&self) -> f32 {
-		getf(&gets(&gets(self.world, "particles"), "initiative"), self.index() as f64)
+		getf(&gets(&gets(&self.world, "particles"), "initiative"), self.index() as f64)
 			.as_f64().expect(&format!("particles.initiative[{},{}] not found", self.x, self.y).as_str()) as f32
 	}
 	fn set_initiative(&mut self, val: f32) {
@@ -165,7 +167,7 @@ impl<'w> ParticleData for RealParticle<'w> {
 	}
 	
 	fn rgba(&self) -> u32 {
-		getf(&gets(&gets(self.world, "particles"), "rgba"), self.index() as f64)
+		getf(&gets(&gets(&self.world, "particles"), "rgba"), self.index() as f64)
 			.as_f64().expect(&format!("particles.rgba[{},{}] not found", self.x, self.y).as_str()) as u32
 	}
 	fn set_rgba(&mut self, val: u32) {
@@ -173,7 +175,7 @@ impl<'w> ParticleData for RealParticle<'w> {
 	}
 	
 	fn velocity_x(&self) -> f32 {
-		getf(&gets(&gets(&gets(self.world, "particles"), "velocity"), "x"), self.index() as f64)
+		getf(&gets(&gets(&gets(&self.world, "particles"), "velocity"), "x"), self.index() as f64)
 			.as_f64().expect(&format!("particles.velocity.x[{},{}] not found", self.x, self.y).as_str()) as f32
 	}
 	fn set_velocity_x(&mut self, val: f32) {
@@ -181,7 +183,7 @@ impl<'w> ParticleData for RealParticle<'w> {
 	}
 	
 	fn velocity_y(&self) -> f32 {
-		getf(&gets(&gets(&gets(self.world, "particles"), "velocity"), "y"), self.index() as f64)
+		getf(&gets(&gets(&gets(&self.world, "particles"), "velocity"), "y"), self.index() as f64)
 			.as_f64().expect(&format!("particles.velocity.y[{},{}] not found", self.x, self.y).as_str()) as f32
 	}
 	fn set_velocity_y(&mut self, val: f32) {
@@ -189,7 +191,7 @@ impl<'w> ParticleData for RealParticle<'w> {
 	}
 	
 	fn subpixel_position_x(&self) -> f32 {
-		getf(&gets(&gets(&gets(self.world, "particles"), "subpixelPosition"), "x"), self.index() as f64)
+		getf(&gets(&gets(&gets(&self.world, "particles"), "subpixelPosition"), "x"), self.index() as f64)
 			.as_f64().expect(&format!("particles.subpixelPosition.x[{},{}] not found", self.x, self.y).as_str()) as f32
 	}
 	fn set_subpixel_position_x(&mut self, val: f32) {
@@ -197,7 +199,7 @@ impl<'w> ParticleData for RealParticle<'w> {
 	}
 	
 	fn subpixel_position_y(&self) -> f32 {
-		getf(&gets(&gets(&gets(self.world, "particles"), "subpixelPosition"), "y"), self.index() as f64)
+		getf(&gets(&gets(&gets(&self.world, "particles"), "subpixelPosition"), "y"), self.index() as f64)
 			.as_f64().expect(&format!("particles.subpixelPosition.y[{},{}] not found", self.x, self.y).as_str()) as f32
 	}
 	fn set_subpixel_position_y(&mut self, val: f32) {
@@ -205,7 +207,7 @@ impl<'w> ParticleData for RealParticle<'w> {
 	}
 	
 	fn mass(&self) -> f32 {
-		getf(&gets(&gets(self.world, "particles"), "mass"), self.index() as f64)
+		getf(&gets(&gets(&self.world, "particles"), "mass"), self.index() as f64)
 			.as_f64().expect(&format!("particles.mass[{},{}] not found", self.x, self.y).as_str()) as f32
 	}
 	fn set_mass(&mut self, val: f32) {
@@ -213,7 +215,7 @@ impl<'w> ParticleData for RealParticle<'w> {
 	}
 	
 	fn temperature(&self) -> f32 {
-		getf(&gets(&gets(self.world, "particles"), "temperature"), self.index() as f64)
+		getf(&gets(&gets(&self.world, "particles"), "temperature"), self.index() as f64)
 			.as_f64().expect(&format!("particles.temperature[{},{}] not found", self.x, self.y).as_str()) as f32
 	}
 	fn set_temperature(&mut self, val: f32) {
@@ -221,7 +223,7 @@ impl<'w> ParticleData for RealParticle<'w> {
 	}
 	
 	fn scratch1(&self) -> u64 {
-		getf(&gets(&gets(self.world, "particles"), "scratch1"), self.index() as f64)
+		getf(&gets(&gets(&self.world, "particles"), "scratch1"), self.index() as f64)
 			.as_f64().expect(&format!("particles.scratch1[{},{}] not found", self.x, self.y).as_str()) as u64
 	}
 	fn set_scratch1(&mut self, val: u64) {
@@ -229,7 +231,7 @@ impl<'w> ParticleData for RealParticle<'w> {
 	}
 	
 	fn scratch2(&self) -> u64 {
-		getf(&gets(&gets(self.world, "particles"), "scratch2"), self.index() as f64)
+		getf(&gets(&gets(&self.world, "particles"), "scratch2"), self.index() as f64)
 			.as_f64().expect(&format!("particles.scratch2[{},{}] not found", self.x, self.y).as_str()) as u64
 	}
 	fn set_scratch2(&mut self, val: u64) {
@@ -238,18 +240,18 @@ impl<'w> ParticleData for RealParticle<'w> {
 }
 
 
-impl<'w> ParticleData for FakeParticle<'w> {
+impl ParticleData for FakeParticle {
 	fn is_new_tick(&mut self) -> bool { false }
 	fn neighbour(&self, delta_x: i32, delta_y: i32) -> Result<BaseParticle, ()> {
 		assert!(
 			self.x != 0 || self.y != 0, 
 			"neighbour({},{}) must have a non-zero delta", self.x, self.y,
 		);
-		new_particle_data(self.world, self.thread_id, self.x+delta_x, self.y+delta_y)
+		new_particle_data(self.world.clone(), self.thread_id, self.x+delta_x, self.y+delta_y)
 	}
 	
-	fn replace(&self, dest: BaseParticle) {}
-	fn swap(&self, dest: BaseParticle) {}
+	fn replace(&mut self, dest: &mut BaseParticle) {}
+	fn swap(&mut self, dest: &mut BaseParticle) {}
 
 	fn type_id(&self) -> u8 { self.type_id }
 	fn set_type_id(&mut self, _: u8) {}
@@ -280,53 +282,59 @@ impl<'w> ParticleData for FakeParticle<'w> {
 
 #[enum_dispatch(ParticleData)]
 #[derive(Debug)]
-pub enum BaseParticle<'w> {
-	Real(RealParticle<'w>),
-	Fake(FakeParticle<'w>),
+pub enum BaseParticle {
+	Real(RealParticle),
+	Fake(FakeParticle),
 }
 
 
 //Maybe this would better be called lock_particle or get_and_lock_particle?
-pub fn new_particle_data(world: &JsValue, thread_id: i32, x: i32, y: i32) -> Result<BaseParticle, ()> {
+pub fn new_particle_data(world: Rc<JsValue>, thread_id: i32, x: i32, y: i32) -> Result<BaseParticle, ()> {
 	if x < 0 { 
+		let type_id = getf(&gets(&world, "wrappingBehaviour"), 0.)
+			.as_f64().expect("world.wrappingBehaviour[0] not found") as u8;
 		return Ok(FakeParticle {
 			world, thread_id,
 			x, y,
-			type_id: getf(&gets(world, "wrappingBehaviour"), 0.)
-				.as_f64().expect("world.wrappingBehaviour[0] not found") as u8
+			type_id
 		}.into())
 	}
 	if y < 0 {
+		let type_id = getf(&gets(&world, "wrappingBehaviour"), 3.)
+			.as_f64().expect("world.wrappingBehaviour[3] not found") as u8;
 		return Ok(FakeParticle {
 			world, thread_id,
 			x, y,
-			type_id: getf(&gets(world, "wrappingBehaviour"), 3.)
-				.as_f64().expect("world.wrappingBehaviour[3] not found") as u8
+			type_id
 		}.into())
 	}
 	
-	let world_bounds = &gets(world, "bounds");
+	let world_bounds = &gets(&world, "bounds");
 	let w = getf(&gets(world_bounds, "x"), 0.)
 		.as_f64().expect("world.bounds.y not found") as i32;
 	let h = getf(&gets(world_bounds, "y"), 0.)
 		.as_f64().expect("world.bounds.y not found") as i32;
 	
 	if x >= w {
+		let type_id = getf(&gets(&world, "wrappingBehaviour"), 1.)
+			.as_f64().expect("world.wrappingBehaviour[1] not found") as u8;
 		return Ok(FakeParticle {
 			world, thread_id,
 			x, y,
-			type_id: getf(&gets(world, "wrappingBehaviour"), 1.)
-				.as_f64().expect("world.wrappingBehaviour[1] not found") as u8
+			type_id
 		}.into())
 	}
 	if y >= h {
+		let type_id = getf(&gets(&world, "wrappingBehaviour"), 2.)
+			.as_f64().expect("world.wrappingBehaviour[2] not found") as u8;
 		return Ok(FakeParticle {
 			world, thread_id,
 			x, y,
-			type_id: getf(&gets(world, "wrappingBehaviour"), 2.)
-				.as_f64().expect("world.wrappingBehaviour[2] not found") as u8
+			type_id
 		}.into())
 	}
+	
+	let particle_lock_array = &gets(&gets(&world, "particles"), "lock");
 	
 	let p = RealParticle {
 		world, thread_id,
@@ -335,7 +343,7 @@ pub fn new_particle_data(world: &JsValue, thread_id: i32, x: i32, y: i32) -> Res
 	
 	match
 		Atomics::compare_exchange(
-			&gets(&gets(world, "particles"), "lock"),
+			particle_lock_array,
 			p.index(),
 			0,
 			thread_id,
@@ -346,12 +354,12 @@ pub fn new_particle_data(world: &JsValue, thread_id: i32, x: i32, y: i32) -> Res
 	}
 }
 
-impl<'w> Drop for RealParticle<'w> {
+impl Drop for RealParticle {
 	//This, this is why we're messing around in Rust here.
 	fn drop(&mut self) {
 		//console::log_1(&format!("unlocked particle at {},{}.", self.x, self.y).into());
 		Atomics::store(
-			&gets(&gets(self.world, "particles"), "lock"),
+			&gets(&gets(&self.world, "particles"), "lock"),
 			self.index(),
 			0,
 		).expect(&format!("Failed to unlock particle at {},{}.", self.x, self.y).as_str());

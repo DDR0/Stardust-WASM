@@ -101,13 +101,13 @@ impl Processable for Dust {
 		
 		//If landing on a solid thing, or on a liquid that we would float in, do nothing.
 		if next_loc.phase() == Phase::Solid || next_loc.weight()? >= self.weight()? { //iron, a solid, floats on mercury, a liquid
-			return Err(())
+			return Err(());
 		}
 		
 		//Whatever we are moving through, apply a speed penalty for the density of the substance.
 		//TODO: Make this use initiative vs a stochastic process.
 		if next_loc.weight()? / self.weight()? < rng.float() {
-			return Err(())
+			return Err(());
 		}
 		
 		if drift_direction != 0 {

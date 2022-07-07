@@ -30,7 +30,7 @@ const callbacks = Object.freeze({
 		thisWorkerID = _thisWorkerIndex + 1
 		world = _world
 		
-		console.log('starting', thisWorkerID)
+		console.log(`Logic worker ${thisWorkerID}/${totalWorkers} started.`)
 		processFrame()
 	},
 })
@@ -39,7 +39,7 @@ addEventListener("message", ({'data': {type, data}}) => {
 	const callback = callbacks[type]
 	if (!callback) { return console.error(`unknown worker event '${type}')`) }
 	
-	console.info('worker msg', type, data)
+	//console.info('worker msg', type, data)
 	
 	try {
 		const retval = callback(...(data??[]))
@@ -53,9 +53,7 @@ addEventListener("message", ({'data': {type, data}}) => {
 	}
 })
 
-console.log("B1")
 postMessage({ type:'ready' }) //Let the main thread know this worker is up, ready to receive data.
-console.log("B2")
 
 
 

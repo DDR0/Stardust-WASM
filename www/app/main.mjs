@@ -1,4 +1,4 @@
-"use strict"
+import {bindWorldToDisplay} from './ui.mjs'
 
 if (!window.SharedArrayBuffer) {
 	document.body.innerHTML = `
@@ -15,13 +15,10 @@ if (!Atomics.waitAsync) { //Firefox doesn't support asyncWait as of 2022-06-12.
 	console.warn('Atomics.waitAsync not available; glitching may occur when resized.')
 }
 
-//import { graphData } from './graphData.mjs'
-import * as ui from './ui.mjs'
-
 const $ = document.querySelector.bind(document);
-//const $$ = document.querySelectorAll.bind(document);
+const $$ = document.querySelectorAll.bind(document);
 
-const canvasSelector = "canvas" //Just use the first canvas we find for now.
+const displaySelector = "#stardust-game" //Just use the first canvas we find for now.
 
 const defaultHardwareConcurrency = 4;
 const maxHardwareConcurrency = 512; //Hopeful little number, isn't it?
@@ -78,58 +75,23 @@ window.world = world //Enable easy script access for debugging.
 
 Array.prototype.fill.call(world.wrappingBehaviour, 1) //0 is air, 1 is wall. Default to wall. See particles.rs:hydrate_with_data() for the full list.
 
-
-///////////////////////////
-//  Set up HTML events.  //
-///////////////////////////
-
-new ResizeObserver(([{target: canvas}]) => {
-	const lockAttempts = 20;
-	const timeToWait = 2000; //ms
-	
-	//Firefox doesn't support asyncWait as of 2022-06-12.
-	Atomics.waitAsync ? acquireWorldLock() : updateCanvasSize()
-	
-	async function acquireWorldLock(iter=1) {
-		//I think this suffers from lock contention, there's no guarantee it'll ever really be free. We should probably just copy it over from a cache every frame.
-		if(0 === Atomics.compareExchange(world.lock, 0, 0, 1)) {
-			updateCanvasSize() //Safely, lock obtained.
-			Atomics.store(world.lock, 0, 0)
-			Atomics.notify(world.lock, 0, 2)
-		}
-		else if (iter > lockAttempts) {
-			updateCanvasSize(); //Yolo, couldn't get lock.
-			console.error(`Failed to acquire world lock.`)
-		}
-		else {
-			await Atomics.waitAsync(world.lock, 0, 0, timeToWait/lockAttempts)
-			acquireWorldLock(iter + 1)
-			console.info(`Failed to acquire world lock ×${iter}.`)
-		}
-	}
-	
-	function updateCanvasSize() {
-		canvas.width = 3;
-		canvas.height = 4;
-		console.log(`canvas resized to ${canvas.width}×${canvas.height} – TODO: copy pixel data here.`)
-		
-		world.bounds.x[0] = canvas.width;
-		world.bounds.y[0] = canvas.height;
-	}
-	
-}).observe($(canvasSelector))
-
+bindWorldToDisplay(world, $(displaySelector))
 
 
 ///////////////////////
 //  Set up workers.  //
 ///////////////////////
 
+const pong = val => { console.log('pong', val) }
 
 const callbacks = { ok: Object.create(null), err: Object.create(null) } //Default, shared callbacks.
-callbacks.ok.hello = ui.pong
+callbacks.ok.hello = pong
 //callbacks.ok.update = graphUi.repaint
-callbacks.ok.pong = ui.pong
+callbacks.ok.pong = pong
+callbacks.ok.reload = ()=>{
+	console.info('Reload requested from worker.')
+	window.location.reload()
+}
 
 
 //Wrap a worker for our error-handling callback style, ie, callbacks.ok.whatever = ()=>{}.

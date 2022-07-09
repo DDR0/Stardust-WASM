@@ -1,8 +1,5 @@
-import {dot, line} from './painter.mjs'
-
-
-/// Set up HTML events.
-export const bindWorldToDisplay = (world, display) => {
+/// Bind HTML to underlying state.
+export const bindWorldToDisplay = (world, display, draw) => {
 	const $ = display.querySelector.bind(display)
 	const $$ = display.querySelectorAll.bind(display)
 	
@@ -85,10 +82,10 @@ export const bindWorldToDisplay = (world, display) => {
 				return console.error('unimplimented')
 			case "pencil":
 				//TODO: Use line here.
-				return dot(world, x1, y1, x2, y2, toolRadius, selectedTypeId)
+				return draw.dot(x1, y1, x2, y2, toolRadius, selectedTypeId)
 			case "eraser":
 				//TODO: Use line here.
-				return dot(world, x1, y1, x2, y2, toolRadius, 0)
+				return draw.dot(x1, y1, x2, y2, toolRadius, 0)
 			default:
 				return console.error(`Unknown tool ${selectedTool}`)
 		}

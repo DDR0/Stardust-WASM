@@ -1,6 +1,4 @@
-"use strict"
-
-const {rng} = await import("./rng.mjs")
+import("./shims.mjs")
 const wasm = await import("../../crate-wasm/pkg/index.js");
 
 wasm.init()
@@ -39,7 +37,7 @@ addEventListener("message", ({'data': {type, data}}) => {
 	const callback = callbacks[type]
 	if (!callback) { return console.error(`unknown worker event '${type}')`) }
 	
-	//console.info('worker msg', type, data)
+	//console.info('logic worker msg', type, data)
 	
 	try {
 		const retval = callback(...(data??[]))
@@ -126,14 +124,5 @@ function processFrame() {
 		Atomics.sub(world.workersRunning, 0, 1)
 		Atomics.wait(world.tick, 0, currentTick)
 		Promise.resolve().then(processFrame)
-	}
-}
-
-
-
-//Patch around Webpack's HMR not handling that it's in a worker.
-self.window = {
-	location: {
-		reload: postMessage.bind(self, { type:'reload' }),
 	}
 }

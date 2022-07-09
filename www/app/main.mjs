@@ -75,8 +75,6 @@ window.world = world //Enable easy script access for debugging.
 
 Array.prototype.fill.call(world.wrappingBehaviour, 1) //0 is air, 1 is wall. Default to wall. See particles.rs:hydrate_with_data() for the full list.
 
-bindWorldToDisplay(world, $(displaySelector))
-
 
 ///////////////////////
 //  Set up workers.  //
@@ -137,7 +135,7 @@ const pendingLogicCores = Array(availableCores).fill().map((_,i)=>{
 					...callbacks.ok,
 					ready: ()=>{
 						resolve(worker)
-						worker.postMessage({type:'hello', data:[]});
+						worker.postMessage({type:'hello', data:[]})
 					}
 				}
 			},
@@ -146,7 +144,6 @@ const pendingLogicCores = Array(availableCores).fill().map((_,i)=>{
 })
 
 //Wait for our compute units to become available.
-const renderCore = await pendingRenderCore
 const logicCores = await Promise.allSettled(pendingLogicCores)
 	.then(results => results
 		.filter(result => result.status === "fulfilled")
@@ -158,7 +155,7 @@ logicCores.forEach((core, coreNumber, cores) => core.postMessage({
 	data: [coreNumber, cores.length, world],
 }))
 
-console.info(`Loaded render core and ${logicCores.length}/${pendingLogicCores.length} logic cores.`)
+console.info(`Loaded ${logicCores.length}/${pendingLogicCores.length} logic cores.`)
 if(!logicCores.length) {
 	document.body.innerHTML = `
 		<div>
@@ -183,3 +180,16 @@ if(!logicCores.length) {
 	}
 	requestAnimationFrame(advanceTick)
 })()
+
+
+
+const renderCore = await pendingRenderCore
+renderCore.postMessage({type:'hello', data:[]})
+console.info(`Loaded render core.`)
+
+bindWorldToDisplay(world, $(displaySelector), {
+	dot:  (...args) => renderCore.postMessage({type:'drawDot',  data:args}),
+	line: (...args) => renderCore.postMessage({type:'drawLine', data:args}),
+	rect: (...args) => renderCore.postMessage({type:'drawRect', data:args}),
+	fill: (...args) => renderCore.postMessage({type:'drawFill', data:args}),
+})

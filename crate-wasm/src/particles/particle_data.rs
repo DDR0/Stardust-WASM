@@ -10,6 +10,7 @@
 /// the particle they're for as well.
 
 use std::rc::Rc;
+use std::fmt;
 
 use crate::JsValue;
 use js_sys::{Reflect, Atomics};
@@ -83,7 +84,7 @@ pub trait ParticleData {
 }
 
 /// Backing data for a real particle in the simulation.
-#[derive(Debug)]
+//#[derive(Debug)] Can't use this, because world is cloned with JSON.stringify, which... takes a while...
 pub struct RealParticle {
 	world: Rc<JsValue>,
 	thread_id: i32,
@@ -97,7 +98,7 @@ pub struct RealParticle {
 ///
 /// By default, the fake backing data will dummy out any writes, and report 0 for reads.
 /// The one exception is for type_id, which is initializable to a value and reports that.
-#[derive(Debug)]
+//#[derive(Debug)] Can't use this, because world is cloned with JSON.stringify, which... takes a while...
 pub struct FakeParticle {
 	world: Rc<JsValue>,
 	thread_id: i32,
@@ -281,7 +282,6 @@ impl ParticleData for FakeParticle {
 
 
 #[enum_dispatch(ParticleData)]
-#[derive(Debug)]
 pub enum BaseParticle {
 	Real(RealParticle),
 	Fake(FakeParticle),
@@ -364,4 +364,30 @@ impl Drop for RealParticle {
 			0,
 		).expect(&format!("Failed to unlock particle at {},{}.", self.x, self.y).as_str());
 	}
+}
+
+
+//Let's use a custom debug formatter which doesn't involve calling JSON.stringify
+//on several million elements in world. (Symptom: Long hang/pause on debug.)
+impl fmt::Debug for BaseParticle {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+        	BaseParticle::Real(p) => write!(f, "BaseParticle::Real({:?})", p),
+        	BaseParticle::Fake(p) => write!(f, "BaseParticle::Fake({:?})", p),
+        }
+    }
+}
+
+impl fmt::Debug for RealParticle {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "RealParticle(id={}, color=#{:x}), x={}, y={}) on thread {}",
+        	self.type_id(), self.rgba(), self.x, self.y, self.thread_id)
+    }
+}
+
+impl fmt::Debug for FakeParticle {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "FakeParticle(id={}, color=#{:x}), x={}, y={}) on thread {}",
+        	self.type_id(), self.rgba(), self.x, self.y, self.thread_id)
+    }
 }

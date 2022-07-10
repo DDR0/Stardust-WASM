@@ -134,45 +134,47 @@ impl ParticleData for RealParticle {
 		new_particle_data(self.world.clone(), self.thread_id, self.x+delta_x, self.y+delta_y)
 	}
 	fn replace(&mut self, dest: &mut BaseParticle) {
-		todo!()
+		console::log_1(&format!("TODO: Implement replace particle function.").into());
+		//todo!()
 	}
 	fn swap(&mut self, dest: &mut BaseParticle) {
-		todo!()
+		console::log_1(&format!("TODO: Implement swap particle function.").into());
+		//todo!()
 	}
 	
 	
 	//World data accessors:
 	
 	fn type_id(&self) -> u8 {
-		getf(&gets(&gets(&self.world, "particles"), "type"), self.index() as f64)
+		getu(&gets(&gets(&self.world, "particles"), "type"), self.index())
 			.as_f64().expect(&format!("particles.type[{},{}] not found", self.x, self.y).as_str()) as u8
 	}
 	fn set_type_id(&mut self, val: u8) {
-		todo!()
+		setu(&gets(&gets(&self.world, "particles"), "type"), self.index(), val.into());
 	}
 	
 	fn stage(&self) -> u8 {
-		getf(&gets(&gets(&self.world, "particles"), "stage"), self.index() as f64)
+		getu(&gets(&gets(&self.world, "particles"), "stage"), self.index())
 			.as_f64().expect(&format!("particles.stage[{},{}] not found", self.x, self.y).as_str()) as u8
 	}
 	fn set_stage(&mut self, val: u8) {
-		todo!()
+		setu(&gets(&gets(&self.world, "particles"), "stage"), self.index(), val.into());
 	}
 	
 	fn initiative(&self) -> f32 {
-		getf(&gets(&gets(&self.world, "particles"), "initiative"), self.index() as f64)
+		getu(&gets(&gets(&self.world, "particles"), "initiative"), self.index())
 			.as_f64().expect(&format!("particles.initiative[{},{}] not found", self.x, self.y).as_str()) as f32
 	}
 	fn set_initiative(&mut self, val: f32) {
-		todo!()
+		setu(&gets(&gets(&self.world, "particles"), "initiative"), self.index(), val.into());
 	}
 	
 	fn rgba(&self) -> u32 {
-		getf(&gets(&gets(&self.world, "particles"), "rgba"), self.index() as f64)
+		getu(&gets(&gets(&self.world, "particles"), "rgba"), self.index())
 			.as_f64().expect(&format!("particles.rgba[{},{}] not found", self.x, self.y).as_str()) as u32
 	}
 	fn set_rgba(&mut self, val: u32) {
-		todo!()
+		setu(&gets(&gets(&self.world, "particles"), "rgba"), self.index(), val.into());
 	}
 	
 	fn velocity_x(&self) -> f32 {
@@ -180,7 +182,7 @@ impl ParticleData for RealParticle {
 			.as_f64().expect(&format!("particles.velocity.x[{},{}] not found", self.x, self.y).as_str()) as f32
 	}
 	fn set_velocity_x(&mut self, val: f32) {
-		todo!()
+		setu(&gets(&gets(&gets(&self.world, "particles"), "velocity"), "x"), self.index(), val.into());
 	}
 	
 	fn velocity_y(&self) -> f32 {
@@ -188,7 +190,7 @@ impl ParticleData for RealParticle {
 			.as_f64().expect(&format!("particles.velocity.y[{},{}] not found", self.x, self.y).as_str()) as f32
 	}
 	fn set_velocity_y(&mut self, val: f32) {
-		todo!()
+		setu(&gets(&gets(&gets(&self.world, "particles"), "velocity"), "y"), self.index(), val.into());
 	}
 	
 	fn subpixel_position_x(&self) -> f32 {
@@ -196,7 +198,7 @@ impl ParticleData for RealParticle {
 			.as_f64().expect(&format!("particles.subpixelPosition.x[{},{}] not found", self.x, self.y).as_str()) as f32
 	}
 	fn set_subpixel_position_x(&mut self, val: f32) {
-		todo!()
+		setu(&gets(&gets(&gets(&self.world, "particles"), "subpixelPosition"), "x"), self.index(), val.into());
 	}
 	
 	fn subpixel_position_y(&self) -> f32 {
@@ -204,39 +206,44 @@ impl ParticleData for RealParticle {
 			.as_f64().expect(&format!("particles.subpixelPosition.y[{},{}] not found", self.x, self.y).as_str()) as f32
 	}
 	fn set_subpixel_position_y(&mut self, val: f32) {
-		todo!()
+		setu(&gets(&gets(&gets(&self.world, "particles"), "subpixelPosition"), "y"), self.index(), val.into());
 	}
 	
 	fn mass(&self) -> f32 {
-		getf(&gets(&gets(&self.world, "particles"), "mass"), self.index() as f64)
+		getu(&gets(&gets(&self.world, "particles"), "mass"), self.index())
 			.as_f64().expect(&format!("particles.mass[{},{}] not found", self.x, self.y).as_str()) as f32
 	}
 	fn set_mass(&mut self, val: f32) {
-		todo!()
+		setu(&gets(&gets(&self.world, "particles"), "mass"), self.index(), val.into());
 	}
 	
 	fn temperature(&self) -> f32 {
-		getf(&gets(&gets(&self.world, "particles"), "temperature"), self.index() as f64)
+		getu(&gets(&gets(&self.world, "particles"), "temperature"), self.index())
 			.as_f64().expect(&format!("particles.temperature[{},{}] not found", self.x, self.y).as_str()) as f32
 	}
 	fn set_temperature(&mut self, val: f32) {
-		todo!()
+		setu(&gets(&gets(&self.world, "particles"), "temperature"), self.index(), val.into());
 	}
 	
 	fn scratch1(&self) -> u64 {
-		getf(&gets(&gets(&self.world, "particles"), "scratch1"), self.index() as f64)
+		//TODO: u64 does not round-trip through f64. Figure out how to get/set this properly.
+		//https://docs.rs/wasm-bindgen/0.2.81/wasm_bindgen/trait.JsCast.html
+		//https://rustwasm.github.io/wasm-bindgen/api/js_sys/struct.BigInt64Array.html
+		getu(&gets(&gets(&self.world, "particles"), "scratch1"), self.index())
 			.as_f64().expect(&format!("particles.scratch1[{},{}] not found", self.x, self.y).as_str()) as u64
 	}
 	fn set_scratch1(&mut self, val: u64) {
-		todo!()
+		console::log_1(&format!("TODO: Implement set_scratch1 function.").into());
+		//setu(&gets(&gets(&self.world, "particles"), "scratch1"), self.index(), val.into());
 	}
 	
 	fn scratch2(&self) -> u64 {
-		getf(&gets(&gets(&self.world, "particles"), "scratch2"), self.index() as f64)
+		getu(&gets(&gets(&self.world, "particles"), "scratch2"), self.index())
 			.as_f64().expect(&format!("particles.scratch2[{},{}] not found", self.x, self.y).as_str()) as u64
 	}
 	fn set_scratch2(&mut self, val: u64) {
-		todo!()
+		console::log_1(&format!("TODO: Implement set_scratch1 function.").into());
+		//setu(&gets(&gets(&self.world, "particles"), "scratch2"), self.index(), val.into());
 	}
 }
 

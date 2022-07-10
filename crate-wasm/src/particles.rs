@@ -18,12 +18,25 @@ pub enum Phase {
 }
 
 
+fn resetCommon(bp: &mut BaseParticle) {
+	bp.set_initiative(0.0);
+	bp.set_velocity_x(0.0);
+	bp.set_velocity_y(0.0);
+	bp.set_subpixel_position_x(0.0);
+	bp.set_subpixel_position_y(0.0);
+	bp.set_mass(0.0);
+	bp.set_temperature(0.0);
+}
+
+
 #[enum_dispatch]
 pub trait Processable {
 	fn base(&mut self) -> &mut BaseParticle;
 	
 	fn phase(&self) -> Phase;
 	fn weight(&self) -> Result<Weight, ()>; //No weight, object is unmovable.
+	
+	fn reset(&mut self);
 	
 	fn run(&mut self) -> Result<(), ()>;
 }
@@ -40,6 +53,11 @@ impl Processable for Air {
 	
 	fn phase(&self) -> Phase { Phase::Gas }
 	fn weight(&self) -> Result<Weight, ()> { Ok(1.185) } //kg/m³ at sea level - steel is 7900.0
+	
+	fn reset(&mut self) {
+		resetCommon(&mut self.base);
+		self.base.set_rgba(0x0000FF44);
+	}
 	
 	fn run(&mut self) -> Result<(), ()> {
 		Err(())
@@ -58,6 +76,11 @@ impl Processable for Wall {
 	fn phase(&self) -> Phase { Phase::Solid }
 	fn weight(&self) -> Result<Weight, ()> { Err(()) }
 	
+	fn reset(&mut self) {
+		resetCommon(&mut self.base);
+		self.base.set_rgba(0xAC844AFF);
+	}
+	
 	fn run(&mut self) -> Result<(), ()> {
 		Err(())
 	}
@@ -75,6 +98,14 @@ impl Processable for Dust {
 	
 	fn phase(&self) -> Phase { Phase::Solid }
 	fn weight(&self) -> Result<Weight, ()> { Ok(1201.0) } //kg/m³, a quartz sand
+	
+	
+	
+	fn reset(&mut self) {
+		resetCommon(&mut self.base);
+		self.base.set_rgba(0xAC844AFF);
+		self.base.set_scratch1(self.base.get_random_seed() as u64);
+	}
 	
 	fn run(&mut self) -> Result<(), ()> {
 		// The following call to Math.random() here breaks wasm.init() in the parent worker JS.
@@ -146,4 +177,12 @@ pub fn hydrate_with_data(base: BaseParticle) -> Particle {
 		2 => Dust{ base }.into(),
 		_ => panic!("Unknown particle ID {}.", base.type_id()),
 	}
+}
+
+pub fn reset_to_type(mut base: BaseParticle, new_type: u8) -> Particle {
+	console::log_1(&format!("resetting particle to {}.", new_type).into());
+	base.set_type_id(new_type);
+	let mut p = hydrate_with_data(base);
+	p.reset();
+	p
 }

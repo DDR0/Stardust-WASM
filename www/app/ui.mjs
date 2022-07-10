@@ -3,7 +3,7 @@ export const bindWorldToDisplay = (world, display, draw) => {
 	const $ = display.querySelector.bind(display)
 	const $$ = display.querySelectorAll.bind(display)
 	
-	let selectedTypeId = $('.toolbox [name=type_id]:checked').value
+	let selectedTypeId = +$('.toolbox [name=type_id]:checked').value
 	let selectedTool = $('.toolbox [name=tool]:checked').value
 	let toolRadius = 10 //particles
 	
@@ -82,10 +82,10 @@ export const bindWorldToDisplay = (world, display, draw) => {
 				return console.error('unimplimented')
 			case "pencil":
 				//TODO: Use line here.
-				return draw.dot(x1, y1, x2, y2, toolRadius, selectedTypeId)
+				return draw.dot(x1, y1, toolRadius, selectedTypeId)
 			case "eraser":
 				//TODO: Use line here.
-				return draw.dot(x1, y1, x2, y2, toolRadius, 0)
+				return draw.dot(x1, y1, toolRadius, 0)
 			default:
 				return console.error(`Unknown tool ${selectedTool}`)
 		}

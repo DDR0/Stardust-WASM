@@ -57,6 +57,8 @@ postMessage({ type:'ready' }) //Let the main thread know this worker is up, read
 
 let lastFrameTime = 0;
 function processFrame() {
+	return; //Don't process; debugging.
+	
 	Atomics.add(world.workersRunning, 0, 1) //Can't use a bitmask because may have >32 cores.
 	const currentTick = Atomics.load(world.tick, 0)
 	//console.log(`#${thisWorkerID} working on tick ${currentTick}`)

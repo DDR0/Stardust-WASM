@@ -19,6 +19,7 @@ use enum_dispatch::enum_dispatch;
 
 
 fn gets(obj: &JsValue, key: &str) -> JsValue {
+	//console::log_1(&format!("Getting value {:?}[{:?}]…", obj, key).into());
 	Reflect::get(obj, &JsValue::from_str(key)).expect("key not found")
 }
 
@@ -47,6 +48,8 @@ fn setu(obj: &JsValue, key: u32, value: f64) -> bool {
 #[enum_dispatch]
 pub trait ParticleData {
 	fn is_new_tick(&mut self) -> bool; /// Returns true on the first invocation during a tick. Must be invoked at least once per tick if used. Sets particle.tick to a boolean value under the hood, true if world.tick is an even number.
+	fn get_random_seed(&self) -> u32; /// Returns a poor-quality random seed, based on particle position and world tick.
+	
 	fn neighbour(&self, delta_x: i32, delta_y: i32) -> Result<BaseParticle, ()>;
 	
 	// Technically, these should consume self too, thus invalidating both
@@ -91,7 +94,7 @@ pub struct RealParticle {
 	x: i32, //particle position from origin of playfield
 	y: i32,
 	w: i32, //w/h of play field, used for dereferencing
-	//h: i32, //origin of play field is always 0,0
+	h: i32, //origin of play field is always 0,0
 }
 
 /// Backing data for a fake particle, used to represent pixels outside the gamefield.
@@ -124,6 +127,12 @@ impl ParticleData for RealParticle {
 		}
 		
 		parity
+	}
+	
+	fn get_random_seed(&self) -> u32 {
+		let world_tick = getf(&gets(&self.world, "tick"), 0.) //Don't need to load this via an atomic… right?
+			.as_f64().expect("world.tick access error") as i32;
+		(world_tick | self.x << 16 | self.y) as u32
 	}
 	
 	fn neighbour(&self, delta_x: i32, delta_y: i32) -> Result<BaseParticle, ()> {
@@ -258,6 +267,12 @@ impl ParticleData for FakeParticle {
 		new_particle_data(self.world.clone(), self.thread_id, self.x+delta_x, self.y+delta_y)
 	}
 	
+	fn get_random_seed(&self) -> u32 {
+		let world_tick = getf(&gets(&self.world, "tick"), 0.) //Don't need to load this via an atomic… right?
+			.as_f64().expect("world.tick access error") as i32;
+		(world_tick | self.x << 16 | self.y) as u32
+	}
+	
 	fn replace(&mut self, dest: &mut BaseParticle) {}
 	fn swap(&mut self, dest: &mut BaseParticle) {}
 
@@ -345,7 +360,7 @@ pub fn new_particle_data(world: Rc<JsValue>, thread_id: i32, x: i32, y: i32) -> 
 	
 	let p = RealParticle {
 		world, thread_id,
-		x,y,w,//h,
+		x,y,w,h,
 	};
 	
 	match

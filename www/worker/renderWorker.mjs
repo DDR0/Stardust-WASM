@@ -2,6 +2,9 @@ import("./shims.mjs")
 const wasm = await import("../../crate-wasm/pkg/index.js")
 wasm.init()
 
+const threadID = -2; //-1 for main, ≥1 for logic workers
+let world
+
 const callbacks = Object.freeze({
 	__proto__: null,
 	
@@ -10,8 +13,12 @@ const callbacks = Object.freeze({
 		return [wasm.hello()]
 	},
 	
-	drawDot: (x1, y1, x2, y2, toolRadius, selectedTypeId) => {
-		
+	bindToWorld: new_world => {
+		world = new_world
+	},
+	
+	drawDot: (x, y, toolRadius, typeID) => {
+		wasm.reset_to_type(world, threadID, x, y, typeID)
 	}
 })
 

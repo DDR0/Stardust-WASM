@@ -13,7 +13,7 @@ use std::rc::Rc;
 use std::fmt;
 
 use crate::JsValue;
-use js_sys::{Reflect, Atomics};
+use js_sys::{Reflect, Atomics, BigUint64Array};
 use web_sys::console;
 use enum_dispatch::enum_dispatch;
 
@@ -235,20 +235,17 @@ impl ParticleData for RealParticle {
 	}
 	
 	fn scratch1(&self) -> u64 {
-		//TODO: u64 does not round-trip through f64. Figure out how to get/set this properly.
-		//https://docs.rs/wasm-bindgen/0.2.81/wasm_bindgen/trait.JsCast.html
-		//https://rustwasm.github.io/wasm-bindgen/api/js_sys/struct.BigInt64Array.html
-		getu(&gets(&gets(&self.world, "particles"), "scratch1"), self.index())
-			.as_f64().expect(&format!("particles.scratch1[{},{}] not found", self.x, self.y).as_str()) as u64
+		BigUint64Array::from(gets(&gets(&self.world, "particles"), "scratch1"))
+			.get_index(self.index())
 	}
 	fn set_scratch1(&mut self, val: u64) {
-		console::log_1(&format!("TODO: Implement set_scratch1 function.").into());
-		//setu(&gets(&gets(&self.world, "particles"), "scratch1"), self.index(), val.into());
+		BigUint64Array::from(gets(&gets(&self.world, "particles"), "scratch1"))
+			.set_index(self.index(), val.into());
 	}
 	
 	fn scratch2(&self) -> u64 {
-		getu(&gets(&gets(&self.world, "particles"), "scratch2"), self.index())
-			.as_f64().expect(&format!("particles.scratch2[{},{}] not found", self.x, self.y).as_str()) as u64
+		BigUint64Array::from(gets(&gets(&self.world, "particles"), "scratch1"))
+			.get_index(self.index())
 	}
 	fn set_scratch2(&mut self, val: u64) {
 		console::log_1(&format!("TODO: Implement set_scratch1 function.").into());

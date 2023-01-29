@@ -47,7 +47,8 @@ const appConfig = {
 				use: [
 					MiniCssExtractPlugin.loader,
 					'css-loader'
-				]
+				],
+				sideEffects: true
 			},{
 				//note: untested, no svgs yet.
 				test: /\.svg$/,

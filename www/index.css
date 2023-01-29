@@ -1,9 +1,13 @@
 body {
 	display: flex;
-	flex-direction: row;
+	flex-direction: column;
 	background: lightgrey;
 }
 
 #help {
 	width: 2.5in;
+}
+
+canvas.main {
+	resize: both;
 }

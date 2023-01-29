@@ -1,11 +1,19 @@
 body {
 	display: flex;
 	flex-direction: column;
+	align-items: center;
+	justify-content: center;
 	background: lightgrey;
+	margin: 0;
+	min-height: 100vh;
 }
 
-#help {
-	width: 2.5in;
+h1 sup {
+	font-family: cursive;
+	font-size: 40%;
+	transform: translate(25px, -12px) rotate(-27deg);
+	display: -webkit-inline-box;
+	margin-left: -5ex;
 }
 
 canvas.main {

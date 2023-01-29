@@ -35,7 +35,7 @@ const callbacks = Object.freeze({
 
 addEventListener("message", ({'data': {type, data}}) => {
 	const callback = callbacks[type]
-	if (!callback) { return console.error(`unknown worker event '${type}')`) }
+	if (!callback) { return console.error(`Unknown worker event '${type}'.`) }
 	
 	//console.info('logic worker msg', type, data)
 	

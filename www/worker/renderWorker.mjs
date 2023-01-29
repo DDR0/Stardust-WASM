@@ -23,13 +23,15 @@ const callbacks = Object.freeze({
 	
 	drawDot: (x, y, toolRadius, typeID) => {
 		wasm.reset_to_type(world, thisWorkerID, x, y, typeID)
-	}
+	},
+	
+	renderInto,
 })
 
 addEventListener("message", ({'data': {type, data}}) => {
 	const callback = callbacks[type]
-	if (!callback) { return console.error(`unknown worker event '${type}')`) }
-	console.info('render worker msg', type, data)
+	if (!callback) { return console.error(`Unknown worker event '${type}'.`) }
+	//console.info('render worker msg', type, data)
 	try {
 		const retval = callback(...(data??[]))
 		if (retval !== undefined) {
@@ -44,3 +46,23 @@ addEventListener("message", ({'data': {type, data}}) => {
 
 postMessage({ type:'ready' }) //Let the main thread know this worker is up, ready to receive data.
 
+
+
+function renderInto(buffer, width, height) {
+	const pixelArray = new DataView(buffer);
+	
+	//Draw a dot, colour is ABGR format.
+	const dot = (colour, x, y) =>
+		pixelArray.setUint32(4*(x + y*width), colour, false)
+	
+	dot(0xFF0000FF, 0,0);
+	dot(0xFF00FFFF, 20,10);
+	dot(0x009900FF | ((Math.random()*0xFF)<<8), Math.floor(Math.random()*width), Math.floor(Math.random()*height));
+	
+	postMessage({type: 'drawFrame', data: [buffer, width, height]}, [buffer])
+	
+	if(buffer.byteLength && !renderInto.hasThrownTransferError) {
+		renderInto.hasThrownTransferError = true
+		console.error('Failed to transfer image data, falling back to expensive copy operation.')
+	}
+}

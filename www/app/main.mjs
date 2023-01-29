@@ -1,4 +1,5 @@
 import {bindWorldToDisplay} from './ui.mjs'
+import '../index.css';
 
 if (!window.SharedArrayBuffer) {
 	document.body.innerHTML = `
@@ -105,31 +106,15 @@ function wrapForCallbacks(worker, callbacks) {
 			callbacks[error!==undefined?'err':'ok'][type]
 			?? (error!==undefined 
 				? console.error 
-				: console.error(`unknown main event '${error!==undefined?'err':'ok'}.${type}')`) )
+				: console.error(`Unknown main event '${error!==undefined?'err':'ok'}.${type}'.`) )
 		callback(...(data ?? [error]))
 	});
 	
 	return worker
 }
 
-
-const pendingRenderCore = new Promise((resolve, reject) => {
-	const worker = wrapForCallbacks(
-		new Worker('./renderWorker.mjs'),
-		{
-			err: { ...callbacks.err }, 
-			ok: {
-				...callbacks.ok,
-				ready: ()=>{
-					resolve(worker)
-				},
-			},
-		}
-	)
-})
-
 const pendingLogicCores = Array(availableCores).fill().map((_,i)=>{
-	return new Promise((resolve, reject) => {
+	return new Promise(resolve => {
 		const worker = wrapForCallbacks(
 			new Worker('./logicWorker.mjs'),
 			{
@@ -139,11 +124,27 @@ const pendingLogicCores = Array(availableCores).fill().map((_,i)=>{
 					ready: ()=>{
 						resolve(worker)
 						worker.postMessage({type:'hello', data:[]})
-					}
+					},
 				}
 			},
 		)
 	});
+})
+
+const pendingRenderCore = new Promise(resolve => {
+	const worker = wrapForCallbacks(
+		new Worker('./renderWorker.mjs'),
+		{
+			err: { ...callbacks.err }, 
+			ok: {
+				...callbacks.ok,
+				ready: ()=>{
+					resolve(worker)
+				},
+				drawFrame,
+			},
+		}
+	)
 })
 
 //Wait for our compute units to become available.
@@ -159,7 +160,7 @@ logicCores.forEach((core, coreNumber, cores) => core.postMessage({
 }))
 
 console.info(`Loaded ${logicCores.length}/${pendingLogicCores.length} logic cores.`)
-if(!logicCores.length) {
+if (!logicCores.length) {
 	document.body.innerHTML = `
 		<div>
 			<h1>Software Failure</h1>
@@ -189,6 +190,40 @@ if(!logicCores.length) {
 const renderCore = await pendingRenderCore
 renderCore.postMessage({type:'hello', data:[]})
 renderCore.postMessage({type:'bindToData', data:[world]})
+
+//Rendering works by passing around a typed array buffer, so that we can render
+//the particles in a worker and then efficiently draw the resulting image in the
+//main thread.
+
+drawFrame.context = $("canvas.main").getContext('2d')
+function drawFrame(buffer, width, height) {
+	//If we save the ImageData after transferring the backing array buffer out, transferring the buffer back to this thread doesn't "put it back" into the ImageData's buffer. And since we can't assign it to buffer, we have to recreate the object. Seems fairly light-weight, at least, since we can create the new object with the old buffer.
+	//Anyway, first step, we draw the image data. This way, we don't drop frames when we're resizing, even if we do lag a bit.
+	drawFrame.context.putImageData(new ImageData(new Uint8ClampedArray(buffer), width, height), 0, 0);
+	
+	//Regenereate the buffer here if our canvas has changed size. We could use a ResizeObserver, but we'd have to check here anyway since we never *store* the buffer in a permanent variable - it only ever lives in function args, since ownership is passed around between the main and render threads.
+	const canvas = drawFrame.context.canvas;
+	if (canvas.width != width || canvas.height != height) {
+		({width, height} = canvas)
+		buffer = new ArrayBuffer(4*width*height)
+	}
+	
+	//I'm not sure about the placement of this RAF - should we kick off rendering at the end of the current frame and draw it immediately on the next, as opposed to kicking off the render and hoping it returns before the next frame? I think we could also put it in the web-worker, but that wouldn't really help us here.
+	requestAnimationFrame(() => {
+		renderCore.postMessage(
+			{ type: 'renderInto', data: [buffer, width, height] },
+			[ buffer ],
+		)
+		
+		if (buffer.byteLength && !drawFrame.hasThrownTransferError) {
+			drawFrame.hasThrownTransferError = true
+			console.error('Failed to transfer image data, falling back to expensive copy operation.')
+		}
+	})
+}
+
+drawFrame(new ArrayBuffer(4), 1, 1) //Kick off the render loop.
+
 console.info(`Loaded render core.`)
 
 bindWorldToDisplay(world, gameDisplay, {
@@ -197,3 +232,5 @@ bindWorldToDisplay(world, gameDisplay, {
 	rect: (...args) => renderCore.postMessage({type:'drawRect', data:args}),
 	fill: (...args) => renderCore.postMessage({type:'drawFill', data:args}),
 })
+
+console.info('Bound UI elements.')

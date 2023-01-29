@@ -2,6 +2,7 @@
 export const bindWorldToDisplay = (world, display, draw) => {
 	const $ = display.querySelector.bind(display)
 	const $$ = display.querySelectorAll.bind(display)
+	const mainCanvas = $('canvas.main')
 	
 	let selectedTypeId = +$('.toolbox [name=type_id]:checked').value
 	let selectedTool = $('.toolbox [name=tool]:checked').value
@@ -10,8 +11,8 @@ export const bindWorldToDisplay = (world, display, draw) => {
 	
 	// Canvas resizing.
 	new ResizeObserver(([{target: canvas}]) => {
-		const lockAttempts = 20;
-		const timeToWait = 2000; //ms
+		const lockAttempts = 200;
+		const timeToWait = 2000; //ms, total
 		
 		//Firefox doesn't support asyncWait as of 2022-06-12.
 		Atomics.waitAsync ? acquireWorldLock() : updateCanvasSize()
@@ -42,7 +43,7 @@ export const bindWorldToDisplay = (world, display, draw) => {
 			world.bounds.x[0] = canvas.width;
 			world.bounds.y[0] = canvas.height;
 		}
-	}).observe($('canvas.main'))
+	}).observe(mainCanvas)
 	
 	
 	// Toolbox logic.
@@ -90,7 +91,7 @@ export const bindWorldToDisplay = (world, display, draw) => {
 					return console.error(`Unknown tool ${selectedTool}`)
 			}
 		}
-		$('canvas').addEventListener('mousedown', mouseHandler)
-		$('canvas').addEventListener('mousemove', mouseHandler)
+		mainCanvas.addEventListener('mousedown', mouseHandler)
+		mainCanvas.addEventListener('mousemove', mouseHandler)
 	}
 }

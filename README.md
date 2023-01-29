@@ -22,3 +22,7 @@ to WebAssembly and hooking into a Webpack build pipeline.
 
 - In the project base directory, `~`, run `cargo build`.
 - In `~/www`, run `npm install`.
+
+## Stardust Options
+
+- `localStorage.coreOverride = N`: Set the number of processing cores used to N, where N >= 0. If N is 0, processing cores are calculated automatically based on `navigator.hardwareConcurrency`.

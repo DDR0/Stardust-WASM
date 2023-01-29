@@ -21,11 +21,10 @@ const $$ = document.querySelectorAll.bind(document);
 const displaySelector = "#stardust-game" //Just use the first canvas we find for now.
 
 const defaultHardwareConcurrency = 4;
-const maxHardwareConcurrency = 512; //Hopeful little number, isn't it?
-const reservedCores = 2; //One for main thread, one for the render thread.
+const reservedCores = 2; //One for main thread, one for the render thread; the rest are used for processing. This means at minimum we run with 3 threads, even if we're on a single-core CPU.
 //Note: Safari doesn't support hardwareConcurrency as of 2022-06-09.
-const availableCores = Math.min(Math.max( //Available cores for _processing._
-	1, (navigator.hardwareConcurrency || defaultHardwareConcurrency) - reservedCores), maxHardwareConcurrency);
+const availableCores = Math.max(1,  //Available cores for _processing,_ at least 1.
+	(navigator.hardwareConcurrency || defaultHardwareConcurrency) - reservedCores);
 
 const maxScreenRes = Object.freeze({ x: 3840, y: 2160 }) //4k resolution, probably no sense reserving more memory than that especially given we expect to scale up our pixels.
 const totalPixels = maxScreenRes.x * maxScreenRes.y

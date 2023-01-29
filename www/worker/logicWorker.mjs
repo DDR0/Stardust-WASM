@@ -57,7 +57,7 @@ postMessage({ type:'ready' }) //Let the main thread know this worker is up, read
 
 let lastFrameTime = 0;
 function processFrame() {
-	return; //Don't process; debugging.
+	//return; //Don't process at all for debugging.
 	
 	Atomics.add(world.workersRunning, 0, 1) //Can't use a bitmask directly because may have >32 cores, would have to bin.
 	const currentTick = Atomics.load(world.tick, 0)
@@ -109,9 +109,7 @@ function processFrame() {
 	}
 	
 	//Next steps:
-	//Update on world.workersRunning at start and end of processing. (add and subtract 1)
-	//if (world.workersRunning)
-	//Set self to 0.
+	Atomics.sub(world.workersRunning, 0, 1)
 	
 	//Iterate only once, for testing purposes.
 	return

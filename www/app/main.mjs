@@ -11,14 +11,14 @@ if (!window.SharedArrayBuffer) {
 	throw new ReferenceError('SharedArrayBuffer is not defined.')
 }
 
-if (!Atomics.waitAsync) { //Firefox doesn't support asyncWait as of 2022-06-12.
+if (!Atomics.waitAsync) { //Firefox doesn't support asyncWait as of 2023-01-28.
 	console.warn('Atomics.waitAsync not available; glitching may occur when resized.')
 }
 
 const $ = document.querySelector.bind(document);
 const $$ = document.querySelectorAll.bind(document);
 
-const displaySelector = "#stardust-game" //Just use the first canvas we find for now.
+const gameDisplay = $("#stardust-game")
 
 const defaultHardwareConcurrency = 4;
 const reservedCores = 2; //One for main thread, one for the render thread; the rest are used for processing. This means at minimum we run with 3 threads, even if we're on a single-core CPU.
@@ -188,10 +188,10 @@ if(!logicCores.length) {
 
 const renderCore = await pendingRenderCore
 renderCore.postMessage({type:'hello', data:[]})
-renderCore.postMessage({type:'bindToWorld', data:[world]})
+renderCore.postMessage({type:'bindToData', data:[world]})
 console.info(`Loaded render core.`)
 
-bindWorldToDisplay(world, $(displaySelector), {
+bindWorldToDisplay(world, gameDisplay, {
 	dot:  (...args) => renderCore.postMessage({type:'drawDot',  data:args}),
 	line: (...args) => renderCore.postMessage({type:'drawLine', data:args}),
 	rect: (...args) => renderCore.postMessage({type:'drawRect', data:args}),

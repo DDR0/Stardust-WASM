@@ -42,7 +42,7 @@ export const bindWorldToDisplay = (world, display, draw) => {
 			world.bounds.x[0] = canvas.width;
 			world.bounds.y[0] = canvas.height;
 		}
-	}).observe($('canvas'))
+	}).observe($('canvas.main'))
 	
 	
 	// Toolbox logic.
@@ -67,27 +67,30 @@ export const bindWorldToDisplay = (world, display, draw) => {
 	}
 	updateCursor()
 	
-	
-	$('canvas').addEventListener('mousemove', evt => {
-		if (!evt.buttons) { return };
-		
-		const clientRect = evt.target.getClientRects()[0]
-		const x1 = Math.round(evt.x - clientRect.x) 
-		const y1 = Math.round(evt.y - clientRect.y)
-		const x2 = x1 - evt.movementX;
-		const y2 = y1 - evt.movementY;
-		
-		switch (selectedTool) {
-			case "picker":
-				return console.error('unimplimented')
-			case "pencil":
-				//TODO: Use line here.
-				return draw.dot(x1, y1, toolRadius, selectedTypeId)
-			case "eraser":
-				//TODO: Use line here.
-				return draw.dot(x1, y1, toolRadius, 0)
-			default:
-				return console.error(`Unknown tool ${selectedTool}`)
+	{
+		const mouseHandler = evt => {
+			if (!evt.buttons) { return };
+			
+			const clientRect = evt.target.getClientRects()[0]
+			const x1 = Math.round(evt.x - clientRect.x) 
+			const y1 = Math.round(evt.y - clientRect.y)
+			const x2 = x1 - evt.movementX;
+			const y2 = y1 - evt.movementY;
+			
+			switch (selectedTool) {
+				case "picker":
+					return console.error('unimplimented')
+				case "pencil":
+					//TODO: Use line here.
+					return draw.dot(x1, y1, toolRadius, selectedTypeId)
+				case "eraser":
+					//TODO: Use line here.
+					return draw.dot(x1, y1, toolRadius, 0)
+				default:
+					return console.error(`Unknown tool ${selectedTool}`)
+			}
 		}
-	})
+		$('canvas').addEventListener('mousedown', mouseHandler)
+		$('canvas').addEventListener('mousemove', mouseHandler)
+	}
 }

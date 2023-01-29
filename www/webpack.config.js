@@ -23,6 +23,7 @@ const appConfig = {
 	plugins: [
 		new HtmlWebpackPlugin({
 			template: "index.html",
+			favicon: "favicon.png",
 			inject: "head",
 			scriptLoading: "defer",
 		}),

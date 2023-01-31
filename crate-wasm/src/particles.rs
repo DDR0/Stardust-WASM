@@ -39,6 +39,8 @@ pub trait Processable {
 	fn reset(&mut self);
 	
 	fn run(&mut self) -> Result<(), ()>;
+	
+	fn render(&mut self) -> u32;
 }
 
 
@@ -62,6 +64,10 @@ impl Processable for Air {
 	fn run(&mut self) -> Result<(), ()> {
 		Err(())
 	}
+	
+	fn render(&mut self) -> u32 {
+		self.base.rgba()
+	}
 }
 
 
@@ -83,6 +89,10 @@ impl Processable for Wall {
 	
 	fn run(&mut self) -> Result<(), ()> {
 		Err(())
+	}
+	
+	fn render(&mut self) -> u32 {
+		self.base.rgba()
 	}
 }
 
@@ -156,6 +166,10 @@ impl Processable for Dust {
 		//console::log_1(&format!("dbg").into());
 		
 		Ok(())
+	}
+	
+	fn render(&mut self) -> u32 {
+		self.base.rgba()
 	}
 }
 

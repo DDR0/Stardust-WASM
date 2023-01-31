@@ -51,13 +51,11 @@ postMessage({ type:'ready' }) //Let the main thread know this worker is up, read
 function renderInto(buffer, width, height) {
 	const pixelArray = new DataView(buffer);
 	
-	//Draw a dot, colour is ABGR format.
-	const dot = (colour, x, y) =>
-		pixelArray.setUint32(4*(x + y*width), colour, false)
-	
-	dot(0xFF0000FF, 0,0);
-	dot(0xFF00FFFF, 20,10);
-	dot(0x009900FF | ((Math.random()*0xFF)<<8), Math.floor(Math.random()*width), Math.floor(Math.random()*height));
+	for (let y = 0; y < height; y++) {
+		for (let x = 0; x < width; x++) {
+			wasm.render_particle(world, pixelArray, thisWorkerID, x, y, width, height)
+		}
+	}
 	
 	postMessage({type: 'drawFrame', data: [buffer, width, height]}, [buffer])
 	

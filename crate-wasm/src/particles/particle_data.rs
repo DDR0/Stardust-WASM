@@ -9,6 +9,7 @@
 /// particle attributes, and ensures you can't access them without locking
 /// the particle they're for as well.
 
+use std::thread::LocalKey;
 use std::rc::Rc;
 use std::fmt;
 
@@ -17,6 +18,71 @@ use js_sys::{Reflect, Atomics, BigUint64Array};
 use web_sys::console;
 use enum_dispatch::enum_dispatch;
 
+std::thread_local! {
+	//Allocate the JS strings used to look stuff up in the world once, vs generating them as needed.
+	//This was crashing Chrome 109.0.5414.119 with SIGILL, as well as just being plain ol' slow.
+	static JS_BOUNDS:             JsValue = JsValue::from_str("bounds");
+	static JS_INITIATIVE:         JsValue = JsValue::from_str("initiative");
+	static JS_LOCK:               JsValue = JsValue::from_str("lock");
+	static JS_MASS:               JsValue = JsValue::from_str("mass");
+	static JS_PARTICLES:          JsValue = JsValue::from_str("particles");
+	static JS_RGBA:               JsValue = JsValue::from_str("rgba");
+	static JS_SCRATCH1:           JsValue = JsValue::from_str("scratch1");
+	static JS_SCRATCH2:           JsValue = JsValue::from_str("scratch2");
+	static JS_STAGE:              JsValue = JsValue::from_str("stage");
+	static JS_SUBPIXEL_POSITION:  JsValue = JsValue::from_str("subpixelPosition");
+	static JS_TEMPERATURE:        JsValue = JsValue::from_str("temperature");
+	static JS_TICK:               JsValue = JsValue::from_str("tick");
+	static JS_TYPE:               JsValue = JsValue::from_str("type");
+	static JS_VELOCITY:           JsValue = JsValue::from_str("velocity");
+	static JS_WORKERS_RUNNING:    JsValue = JsValue::from_str("workersRunning");
+	static JS_WRAPPING_BEHAVIOUR: JsValue = JsValue::from_str("wrappingBehaviour");
+	static JS_X:                  JsValue = JsValue::from_str("x");
+	static JS_Y:                  JsValue = JsValue::from_str("y");
+	//I realise this is ugly as sin. I'm working on it.
+}
+
+fn get1j(world: &JsValue, key1: &'static LocalKey<JsValue>) -> JsValue {
+	key1.with(|key1| {
+		Reflect::get(
+			world, 
+			key1
+		).expect("key not found")
+	})
+}
+
+fn get2j(world: &JsValue, key1: &'static LocalKey<JsValue>, key2: &'static LocalKey<JsValue>) -> JsValue {
+	key1.with(|key1| {
+		key2.with(|key2| {
+			Reflect::get(
+				&Reflect::get(
+					world, 
+					key1
+				).expect("key1 not found"), 
+				key2
+			).expect("key2 not found")
+		})
+	})
+}
+
+fn get3j(world: &JsValue, key1: &'static LocalKey<JsValue>, key2: &'static LocalKey<JsValue>, key3: &'static LocalKey<JsValue>) -> JsValue {
+	key1.with(|key1| {
+		key2.with(|key2| {
+			key3.with(|key3| {
+				Reflect::get(
+					&Reflect::get(
+						&Reflect::get(
+							world, 
+							key1
+						).expect("key1 not found"), 
+						key2
+					).expect("key2 not found"),
+					key3
+				).expect("key3 not found")
+			})
+		})
+	})
+}
 
 fn gets(obj: &JsValue, key: &str) -> JsValue {
 	//console::log_1(&format!("Getting value {:?}[{:?}]…", obj, key).into());
@@ -116,22 +182,23 @@ impl RealParticle {
 
 impl ParticleData for RealParticle {
 	fn is_new_tick(&mut self) -> bool {
-		let particle_tick = getf(&gets(&gets(&self.world, "particles"), "tick"), self.index() as f64)
-			.as_f64().expect(&format!("particles.tick[{},{}] not found", self.x, self.y).as_str()) as i32;
-		let world_tick = getf(&gets(&self.world, "tick"), 0.) //Don't need to load this via an atomic… right?
-			.as_f64().expect("world.tick access error") as i32;
-		let parity: bool = particle_tick % 2 == world_tick % 2;
-		
-		if !parity {
-			setf(&gets(&gets(&self.world, "particles"), "tick"), self.index() as f64, (world_tick % 2).into());
-		}
-		
-		parity
+			let particle_tick = getf(&get2j(&self.world, &JS_PARTICLES, &JS_TICK), self.index() as f64)
+				.as_f64().expect(&format!("particles.tick[{},{}] not found", self.x, self.y).as_str()) as i32;
+			let world_tick = getf(&get1j(&self.world, &JS_TICK), 0.) //Don't need to load this via an atomic… right?
+				.as_f64().expect("world.tick access error") as i32;
+			let parity: bool = particle_tick % 2 == world_tick % 2;
+			
+			if !parity {
+				setf(&get2j(&self.world, &JS_PARTICLES, &JS_TICK), self.index() as f64, (world_tick % 2).into());
+			}
+			
+			parity
 	}
 	
 	fn get_random_seed(&self) -> u32 {
-		let world_tick = getf(&gets(&self.world, "tick"), 0.) //Don't need to load this via an atomic… right?
-			.as_f64().expect("world.tick access error") as i32;
+		let world_tick = getf(&get1j(&self.world, &JS_TICK), 0.) //Don't need to load this via an atomic… right?
+			.as_f64()
+			.expect("world.tick access error") as i32;
 		(world_tick | self.x << 16 | self.y) as u32
 	}
 	

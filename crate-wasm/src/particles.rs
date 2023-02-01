@@ -84,7 +84,7 @@ impl Processable for Wall {
 	
 	fn reset(&mut self) {
 		resetCommon(&mut self.base);
-		self.base.set_rgba(0xAC844AFF);
+		self.base.set_rgba(0x888888FF);
 	}
 	
 	fn run(&mut self) -> Result<(), ()> {

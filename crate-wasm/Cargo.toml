@@ -27,7 +27,7 @@ console_error_panic_hook = { version = "0.1.6", optional = true } #latest 2022-0
 # `wee_alloc` is a tiny allocator for wasm that is only ~1K in code size
 # compared to the default allocator's ~10K. It is slower than the default
 # allocator, however.
-wee_alloc = { version = "0.4.5", optional = true } #latest 2022-06-19
+# wee_alloc = { version = "0.4.5", optional = true } #latest 2022-06-19
 
 js-sys = { version = "0.3.60" } #latest 2023-01-28
 web-sys = { version = "0.3.60", features = ["console"] }
@@ -35,4 +35,5 @@ web-sys = { version = "0.3.60", features = ["console"] }
 enum_dispatch = { version = "0.3.8" }
 
 [features]
-default = ["console_error_panic_hook", "wee_alloc"]
+#default = ["console_error_panic_hook", "wee_alloc"]
+default = ["console_error_panic_hook"]

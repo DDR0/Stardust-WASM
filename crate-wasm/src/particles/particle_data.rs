@@ -39,24 +39,24 @@ std::thread_local! {
 	static JS_WRAPPING_BEHAVIOUR: JsValue = JsValue::from_str("wrappingBehaviour");
 	static JS_X:                  JsValue = JsValue::from_str("x");
 	static JS_Y:                  JsValue = JsValue::from_str("y");
-	//I realise this is ugly as sin. I'm working on it.
+	//I realise this is ugly as sin. I'm working on it. I don't have a memo() function, maybe grab https://docs.rs/fn-memo/latest/fn_memo/ in the future if this becomes more of an issue?
 }
 
-fn get1j(world: &JsValue, key1: &'static LocalKey<JsValue>) -> JsValue {
+fn get1j(object: &JsValue, key1: &'static LocalKey<JsValue>) -> JsValue {
 	key1.with(|key1| {
 		Reflect::get(
-			world, 
+			object, 
 			key1
 		).expect("key not found")
 	})
 }
 
-fn get2j(world: &JsValue, key1: &'static LocalKey<JsValue>, key2: &'static LocalKey<JsValue>) -> JsValue {
+fn get2j(object: &JsValue, key1: &'static LocalKey<JsValue>, key2: &'static LocalKey<JsValue>) -> JsValue {
 	key1.with(|key1| {
 		key2.with(|key2| {
 			Reflect::get(
 				&Reflect::get(
-					world, 
+					object, 
 					key1
 				).expect("key1 not found"), 
 				key2
@@ -65,14 +65,14 @@ fn get2j(world: &JsValue, key1: &'static LocalKey<JsValue>, key2: &'static Local
 	})
 }
 
-fn get3j(world: &JsValue, key1: &'static LocalKey<JsValue>, key2: &'static LocalKey<JsValue>, key3: &'static LocalKey<JsValue>) -> JsValue {
+fn get3j(object: &JsValue, key1: &'static LocalKey<JsValue>, key2: &'static LocalKey<JsValue>, key3: &'static LocalKey<JsValue>) -> JsValue {
 	key1.with(|key1| {
 		key2.with(|key2| {
 			key3.with(|key3| {
 				Reflect::get(
 					&Reflect::get(
 						&Reflect::get(
-							world, 
+							object, 
 							key1
 						).expect("key1 not found"), 
 						key2
@@ -84,10 +84,11 @@ fn get3j(world: &JsValue, key1: &'static LocalKey<JsValue>, key2: &'static Local
 	})
 }
 
-fn gets(obj: &JsValue, key: &str) -> JsValue {
-	//console::log_1(&format!("Getting value {:?}[{:?}]…", obj, key).into());
-	Reflect::get(obj, &JsValue::from_str(key)).expect("key not found")
-}
+// gets and sets are deprecated in favour of get*j, due to creating strings.
+//fn gets(obj: &JsValue, key: &str) -> JsValue {
+//	//console::log_1(&format!("Getting value {:?}[{:?}]…", obj, key).into());
+//	Reflect::get(obj, &JsValue::from_str(key)).expect("key not found")
+//}
 
 fn getf(obj: &JsValue, key: f64) -> JsValue {
 	Reflect::get_f64(obj, key).expect("key not found")
@@ -97,9 +98,9 @@ fn getu(obj: &JsValue, key: u32) -> JsValue {
 	Reflect::get_u32(obj, key).expect("key not found")
 }
 
-fn sets(obj: &JsValue, key: &str, value: f64) -> bool {
-	Reflect::set(obj, &JsValue::from_str(key), &JsValue::from_f64(value)).expect("key not found")
-}
+//fn //sets(obj: &JsValue, key: &str, value: f64) -> bool {
+//	Reflect::set(obj, &JsValue::from_str(key), &JsValue::from_f64(value)).expect("key not found")
+//}
 
 fn setf(obj: &JsValue, key: f64, value: f64) -> bool {
 	Reflect::set_f64(obj, key, &JsValue::from_f64(value)).expect("key not settable in obj")
@@ -222,101 +223,101 @@ impl ParticleData for RealParticle {
 	//World data accessors:
 	
 	fn type_id(&self) -> u8 {
-		getu(&gets(&gets(&self.world, "particles"), "type"), self.index())
+		getu(&get2j(&self.world, &JS_PARTICLES, &JS_TYPE), self.index())
 			.as_f64().expect(&format!("particles.type[{},{}] not found", self.x, self.y).as_str()) as u8
 	}
 	fn set_type_id(&mut self, val: u8) {
-		setu(&gets(&gets(&self.world, "particles"), "type"), self.index(), val.into());
+		setu(&get2j(&self.world, &JS_PARTICLES, &JS_TYPE), self.index(), val.into());
 	}
 	
 	fn stage(&self) -> u8 {
-		getu(&gets(&gets(&self.world, "particles"), "stage"), self.index())
+		getu(&get2j(&self.world, &JS_PARTICLES, &JS_STAGE), self.index())
 			.as_f64().expect(&format!("particles.stage[{},{}] not found", self.x, self.y).as_str()) as u8
 	}
 	fn set_stage(&mut self, val: u8) {
-		setu(&gets(&gets(&self.world, "particles"), "stage"), self.index(), val.into());
+		setu(&get2j(&self.world, &JS_PARTICLES, &JS_STAGE), self.index(), val.into());
 	}
 	
 	fn initiative(&self) -> f32 {
-		getu(&gets(&gets(&self.world, "particles"), "initiative"), self.index())
+		getu(&get2j(&self.world, &JS_PARTICLES, &JS_INITIATIVE), self.index())
 			.as_f64().expect(&format!("particles.initiative[{},{}] not found", self.x, self.y).as_str()) as f32
 	}
 	fn set_initiative(&mut self, val: f32) {
-		setu(&gets(&gets(&self.world, "particles"), "initiative"), self.index(), val.into());
+		setu(&get2j(&self.world, &JS_PARTICLES, &JS_INITIATIVE), self.index(), val.into());
 	}
 	
 	fn rgba(&self) -> u32 {
-		getu(&gets(&gets(&self.world, "particles"), "rgba"), self.index())
+		getu(&get2j(&self.world, &JS_PARTICLES, &JS_RGBA), self.index())
 			.as_f64().expect(&format!("particles.rgba[{},{}] not found", self.x, self.y).as_str()) as u32
 	}
 	fn set_rgba(&mut self, val: u32) {
-		setu(&gets(&gets(&self.world, "particles"), "rgba"), self.index(), val.into());
+		setu(&get2j(&self.world, &JS_PARTICLES, &JS_RGBA), self.index(), val.into());
 	}
 	
 	fn velocity_x(&self) -> f32 {
-		getf(&gets(&gets(&gets(&self.world, "particles"), "velocity"), "x"), self.index() as f64)
+		getf(&get3j(&self.world, &JS_PARTICLES, &JS_VELOCITY, &JS_X), self.index() as f64)
 			.as_f64().expect(&format!("particles.velocity.x[{},{}] not found", self.x, self.y).as_str()) as f32
 	}
 	fn set_velocity_x(&mut self, val: f32) {
-		setu(&gets(&gets(&gets(&self.world, "particles"), "velocity"), "x"), self.index(), val.into());
+		setu(&get3j(&self.world, &JS_PARTICLES, &JS_VELOCITY, &JS_X), self.index(), val.into());
 	}
 	
 	fn velocity_y(&self) -> f32 {
-		getf(&gets(&gets(&gets(&self.world, "particles"), "velocity"), "y"), self.index() as f64)
+		getf(&get3j(&self.world, &JS_PARTICLES, &JS_VELOCITY, &JS_Y), self.index() as f64)
 			.as_f64().expect(&format!("particles.velocity.y[{},{}] not found", self.x, self.y).as_str()) as f32
 	}
 	fn set_velocity_y(&mut self, val: f32) {
-		setu(&gets(&gets(&gets(&self.world, "particles"), "velocity"), "y"), self.index(), val.into());
+		setu(&get3j(&self.world, &JS_PARTICLES, &JS_VELOCITY, &JS_Y), self.index(), val.into());
 	}
 	
 	fn subpixel_position_x(&self) -> f32 {
-		getf(&gets(&gets(&gets(&self.world, "particles"), "subpixelPosition"), "x"), self.index() as f64)
+		getf(&get3j(&self.world, &JS_PARTICLES, &JS_SUBPIXEL_POSITION, &JS_X), self.index() as f64)
 			.as_f64().expect(&format!("particles.subpixelPosition.x[{},{}] not found", self.x, self.y).as_str()) as f32
 	}
 	fn set_subpixel_position_x(&mut self, val: f32) {
-		setu(&gets(&gets(&gets(&self.world, "particles"), "subpixelPosition"), "x"), self.index(), val.into());
+		setu(&get3j(&self.world, &JS_PARTICLES, &JS_SUBPIXEL_POSITION, &JS_X), self.index(), val.into());
 	}
 	
 	fn subpixel_position_y(&self) -> f32 {
-		getf(&gets(&gets(&gets(&self.world, "particles"), "subpixelPosition"), "y"), self.index() as f64)
+		getf(&get3j(&self.world, &JS_PARTICLES, &JS_SUBPIXEL_POSITION, &JS_Y), self.index() as f64)
 			.as_f64().expect(&format!("particles.subpixelPosition.y[{},{}] not found", self.x, self.y).as_str()) as f32
 	}
 	fn set_subpixel_position_y(&mut self, val: f32) {
-		setu(&gets(&gets(&gets(&self.world, "particles"), "subpixelPosition"), "y"), self.index(), val.into());
+		setu(&get3j(&self.world, &JS_PARTICLES, &JS_SUBPIXEL_POSITION, &JS_Y), self.index(), val.into());
 	}
 	
 	fn mass(&self) -> f32 {
-		getu(&gets(&gets(&self.world, "particles"), "mass"), self.index())
+		getu(&get2j(&self.world, &JS_PARTICLES, &JS_MASS), self.index())
 			.as_f64().expect(&format!("particles.mass[{},{}] not found", self.x, self.y).as_str()) as f32
 	}
 	fn set_mass(&mut self, val: f32) {
-		setu(&gets(&gets(&self.world, "particles"), "mass"), self.index(), val.into());
+		setu(&get2j(&self.world, &JS_PARTICLES, &JS_MASS), self.index(), val.into());
 	}
 	
 	fn temperature(&self) -> f32 {
-		getu(&gets(&gets(&self.world, "particles"), "temperature"), self.index())
+		getu(&get2j(&self.world, &JS_PARTICLES, &JS_TEMPERATURE), self.index())
 			.as_f64().expect(&format!("particles.temperature[{},{}] not found", self.x, self.y).as_str()) as f32
 	}
 	fn set_temperature(&mut self, val: f32) {
-		setu(&gets(&gets(&self.world, "particles"), "temperature"), self.index(), val.into());
+		setu(&get2j(&self.world, &JS_PARTICLES, &JS_TEMPERATURE), self.index(), val.into());
 	}
 	
 	fn scratch1(&self) -> u64 {
-		BigUint64Array::from(gets(&gets(&self.world, "particles"), "scratch1"))
-			.get_index(self.index())
+		let scratch: BigUint64Array = get2j(&self.world, &JS_PARTICLES, &JS_SCRATCH1).into();
+		scratch.get_index(self.index())
 	}
 	fn set_scratch1(&mut self, val: u64) {
-		BigUint64Array::from(gets(&gets(&self.world, "particles"), "scratch1"))
-			.set_index(self.index(), val.into());
+		let scratch: BigUint64Array = get2j(&self.world, &JS_PARTICLES, &JS_SCRATCH2).into();
+		scratch.set_index(self.index(), val.into());
 	}
 	
 	fn scratch2(&self) -> u64 {
-		BigUint64Array::from(gets(&gets(&self.world, "particles"), "scratch1"))
-			.get_index(self.index())
+		let scratch: BigUint64Array = get2j(&self.world, &JS_PARTICLES, &JS_SCRATCH2).into();
+		scratch.get_index(self.index())
 	}
 	fn set_scratch2(&mut self, val: u64) {
-		console::log_1(&format!("TODO: Implement set_scratch1 function.").into());
-		//setu(&gets(&gets(&self.world, "particles"), "scratch2"), self.index(), val.into());
+		let scratch: BigUint64Array = get2j(&self.world, &JS_PARTICLES, &JS_SCRATCH2).into();
+		scratch.set_index(self.index(), val.into());
 	}
 }
 
@@ -332,7 +333,7 @@ impl ParticleData for FakeParticle {
 	}
 	
 	fn get_random_seed(&self) -> u32 {
-		let world_tick = getf(&gets(&self.world, "tick"), 0.) //Don't need to load this via an atomic… right?
+		let world_tick = getf(&get1j(&self.world, &JS_TICK), 0.) //Don't need to load this via an atomic… right?
 			.as_f64().expect("world.tick access error") as i32;
 		(world_tick | self.x << 16 | self.y) as u32
 	}
@@ -376,8 +377,9 @@ pub enum BaseParticle {
 
 //Maybe this would better be called lock_particle or get_and_lock_particle?
 pub fn new_particle_data(world: Rc<JsValue>, thread_id: i32, x: i32, y: i32) -> Result<BaseParticle, ()> {
+	let wrapping_behaviour = &get1j(&world, &JS_WRAPPING_BEHAVIOUR);
 	if x < 0 { 
-		let type_id = getf(&gets(&world, "wrappingBehaviour"), 0.)
+		let type_id = getf(wrapping_behaviour, 0.)
 			.as_f64().expect("world.wrappingBehaviour[0] not found") as u8;
 		return Ok(FakeParticle {
 			world, thread_id,
@@ -386,7 +388,7 @@ pub fn new_particle_data(world: Rc<JsValue>, thread_id: i32, x: i32, y: i32) -> 
 		}.into())
 	}
 	if y < 0 {
-		let type_id = getf(&gets(&world, "wrappingBehaviour"), 3.)
+		let type_id = getf(wrapping_behaviour, 3.)
 			.as_f64().expect("world.wrappingBehaviour[3] not found") as u8;
 		return Ok(FakeParticle {
 			world, thread_id,
@@ -395,14 +397,14 @@ pub fn new_particle_data(world: Rc<JsValue>, thread_id: i32, x: i32, y: i32) -> 
 		}.into())
 	}
 	
-	let world_bounds = &gets(&world, "bounds");
-	let w = getf(&gets(world_bounds, "x"), 0.)
+	let world_bounds = &get1j(&world, &JS_BOUNDS);
+	let w = getf(&get1j(world_bounds, &JS_X), 0.)
 		.as_f64().expect("world.bounds.y not found") as i32;
-	let h = getf(&gets(world_bounds, "y"), 0.)
+	let h = getf(&get1j(world_bounds, &JS_Y), 0.)
 		.as_f64().expect("world.bounds.y not found") as i32;
 	
 	if x >= w {
-		let type_id = getf(&gets(&world, "wrappingBehaviour"), 1.)
+		let type_id = getf(wrapping_behaviour, 1.)
 			.as_f64().expect("world.wrappingBehaviour[1] not found") as u8;
 		return Ok(FakeParticle {
 			world, thread_id,
@@ -411,7 +413,7 @@ pub fn new_particle_data(world: Rc<JsValue>, thread_id: i32, x: i32, y: i32) -> 
 		}.into())
 	}
 	if y >= h {
-		let type_id = getf(&gets(&world, "wrappingBehaviour"), 2.)
+		let type_id = getf(wrapping_behaviour, 2.)
 			.as_f64().expect("world.wrappingBehaviour[2] not found") as u8;
 		return Ok(FakeParticle {
 			world, thread_id,
@@ -420,7 +422,7 @@ pub fn new_particle_data(world: Rc<JsValue>, thread_id: i32, x: i32, y: i32) -> 
 		}.into())
 	}
 	
-	let particle_lock_array = &gets(&gets(&world, "particles"), "lock");
+	let particle_lock_array = &get2j(&world, &JS_PARTICLES, &JS_LOCK);
 	
 	let p = RealParticle {
 		world, thread_id,
@@ -445,7 +447,7 @@ impl Drop for RealParticle {
 	fn drop(&mut self) {
 		//console::log_1(&format!("unlocked particle at {},{}.", self.x, self.y).into());
 		Atomics::store(
-			&gets(&gets(&self.world, "particles"), "lock"),
+			&get2j(&self.world, &JS_PARTICLES, &JS_LOCK),
 			self.index(),
 			0,
 		).expect(&format!("Failed to unlock particle at {},{}.", self.x, self.y).as_str());

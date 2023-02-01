@@ -1,5 +1,7 @@
 # DDR's __Stardust__
 
+A nacent falling sand game, based off `rust-wasm-worker-template`. Thank you Victor Gavrish, without whom we never would have got this running in the first place.
+
 ## Outcome
 
 This experiment is closed, as I could not wring the performance I wanted out of the proof-of-concept. The main issue seems to be that the way I architected the processing core requires *any* memory allocation at all, and the secondary issue seems to be that this workload heavily reads to and writes from values held by the Javascript side of things in a shared array buffer. These reads and writes seem more expensive than we can afford.
@@ -14,8 +16,6 @@ A minor aside: It seems you can't paint shared array buffers directly to canvas 
 
 -----
 
-
-A nacent falling sand game, based off `rust-wasm-worker-template`. Thank you Victor Gavrish, without whom we never would have got this running in the first place.
 
 > **Kickstart your Rust, WebAssembly, Webpack and Web Worker project!**
 

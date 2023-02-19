@@ -1,5 +1,4 @@
 import {bindWorldToDisplay} from './ui.mjs'
-import '../index.css';
 
 if (!window.SharedArrayBuffer) {
 	document.body.innerHTML = `
@@ -116,7 +115,7 @@ function wrapForCallbacks(worker, callbacks) {
 const pendingLogicCores = Array(availableCores).fill().map((_,i)=>{
 	return new Promise(resolve => {
 		const worker = wrapForCallbacks(
-			new Worker('./logicWorker.mjs'),
+			new Worker('worker/logicWorker.mjs', {type:'module'}),
 			{
 				err: { ...callbacks.err }, 
 				ok: {
@@ -133,7 +132,7 @@ const pendingLogicCores = Array(availableCores).fill().map((_,i)=>{
 
 const pendingRenderCore = new Promise(resolve => {
 	const worker = wrapForCallbacks(
-		new Worker('./renderWorker.mjs'),
+		new Worker('worker/renderWorker.mjs', {type:'module'}),
 		{
 			err: { ...callbacks.err }, 
 			ok: {

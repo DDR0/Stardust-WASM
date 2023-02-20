@@ -2,10 +2,6 @@
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
 class ExampleServer(SimpleHTTPRequestHandler):
-	def do_GET(self):
-		#self.end_headers()
-		super().do_GET()
-	
 	def end_headers(self):
 		#These headers are required for cross-origin isolation, which is
 		#required for shared array buffers. See in JS: `crossOriginIsolated`.

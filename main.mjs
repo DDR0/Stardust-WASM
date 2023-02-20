@@ -20,8 +20,7 @@ if (!Atomics.waitAsync) { //Firefox doesn't support asyncWait as of 2023-01-28.
 
 const $ = document.querySelector.bind(document);
 const $$ = document.querySelectorAll.bind(document);
-
-const gameDisplay = $("#stardust-game")
+const canvas = $("#stardust-game canvas.main")
 
 const defaultHardwareConcurrency = 4;
 const reservedCores = 2; //One for main thread, one for the render thread; the rest are used for processing. This means at minimum we run with 3 threads, even if we're on a single-core CPU.
@@ -35,51 +34,66 @@ const availableCores =
 
 const maxScreenRes = Object.freeze({ x: 3840, y: 2160 }) //4k resolution, probably no sense reserving more memory than that especially given we expect to scale up our pixels.
 const totalPixels = maxScreenRes.x * maxScreenRes.y
-const renderBuffer = new Uint8Array(new SharedArrayBuffer(totalPixels * Uint8Array.BYTES_PER_ELEMENT * 3)) //rgb triplets (no a?) - drawn to canvas to render the game
 
+//Allocate simulation memory.
 //Could use a double-buffer system, but we would have to copy everything from one buffer to the other each frame. Benefit: no tearing.
-const world = Object.freeze({
+const world = {
 	__proto__: null,
-	lock:              new Int32Array(new SharedArrayBuffer(1 * Int32Array.BYTES_PER_ELEMENT)), //Global lock for all world data, so we can resize the world. Also acts as a "pause" button. Bool, but atomic operations like i32.
-	tick:              new Int32Array(new SharedArrayBuffer(1 * Int32Array.BYTES_PER_ELEMENT)), //Current global tick.
 	
-	workersRunning:    new Int32Array(new SharedArrayBuffer(1 * Int32Array.BYTES_PER_ELEMENT)), //Used by workers, last one to finish increments tick.
+	//Some global configuration.
+	globalLock:        [Int32Array, 1], //Global lock for all world data, so we can resize the world. Also acts as a "pause" button. Bool, but atomic operations like i32.
+	globalTick:        [Int32Array, 1], //Current global tick.
+	workersRunning:    [Int32Array, 1], //Used by workers, last one to finish increments tick.
+	simulationSize:    [Int32Array, 2], //width/height
+	wrappingBehaviour: [Uint8Array, 4], //top, left, bottom, right: Set to particle type 0 or 1.
 	
-	bounds: Object.seal({ 
-		__proto__: null,
-		x:             new Int32Array(new SharedArrayBuffer(1 * Int32Array.BYTES_PER_ELEMENT)), 
-		y:             new Int32Array(new SharedArrayBuffer(1 * Int32Array.BYTES_PER_ELEMENT)),
-	}),
-	wrappingBehaviour: new Uint8Array(new SharedArrayBuffer(4 * Uint8Array.BYTES_PER_ELEMENT)), //top, left, bottom, right: Set to particle type 0 or 1.
-	
-	particles: Object.freeze({
-		__proto__: null,
-		lock:        new Int32Array    (new SharedArrayBuffer(totalPixels * Int32Array.    BYTES_PER_ELEMENT)), //Is this particle locked for processing? 0=no, >0 = logic worker, -1 = main thread, -2 = render worker
-		type:        new Uint8Array    (new SharedArrayBuffer(totalPixels * Uint8Array.    BYTES_PER_ELEMENT)),
-		tick:        new Uint8Array    (new SharedArrayBuffer(totalPixels * Uint8Array.    BYTES_PER_ELEMENT)), //Used for is_new_tick. Stores whether last tick processed was even or odd. If this doesn't match the current tick, we know to advance the particle simulation one step.
-		stage:       new Uint8Array    (new SharedArrayBuffer(totalPixels * Uint8Array.    BYTES_PER_ELEMENT)), //Particle processing step. Usually 0 = hasn't moved yet, 1 = can't move, >2 = done.
-		initiative:  new Float32Array  (new SharedArrayBuffer(totalPixels * Float32Array.  BYTES_PER_ELEMENT)), //Faster particles get more initiative to spend moving around.
-		rgba:        new Uint32Array   (new SharedArrayBuffer(totalPixels * Uint32Array.   BYTES_PER_ELEMENT)),
-		velocity: {
-			__proto__: null,
-			x:       new Float32Array  (new SharedArrayBuffer(totalPixels * Float32Array.  BYTES_PER_ELEMENT)),
-			y:       new Float32Array  (new SharedArrayBuffer(totalPixels * Float32Array.  BYTES_PER_ELEMENT)),
-		},
-		subpixelPosition: { 
-			__proto__: null,
-			x:       new Float32Array  (new SharedArrayBuffer(totalPixels * Float32Array.  BYTES_PER_ELEMENT)), //Position comes in through x/y coordinate on screen, but this does not capture subpixel position for slow-moving particles.
-			y:       new Float32Array  (new SharedArrayBuffer(totalPixels * Float32Array.  BYTES_PER_ELEMENT)),
-		},
-		mass:        new Float32Array  (new SharedArrayBuffer(totalPixels * Float32Array.  BYTES_PER_ELEMENT)),
-		temperature: new Float32Array  (new SharedArrayBuffer(totalPixels * Float32Array.  BYTES_PER_ELEMENT)), //Kelvin
-		scratch1:    new BigUint64Array(new SharedArrayBuffer(totalPixels * BigUint64Array.BYTES_PER_ELEMENT)), //internal state for the particle
-		scratch2:    new BigUint64Array(new SharedArrayBuffer(totalPixels * BigUint64Array.BYTES_PER_ELEMENT)),
-	})
+	//Particle attribute arrays.
+	locks:        [Int32Array    , totalPixels], //Is this particle locked for processing? 0=no, >0 = logic worker, -1 = main thread, -2 = render worker
+	types:        [Uint8Array    , totalPixels],
+	ticks:        [Uint8Array    , totalPixels], //Used for is_new_tick. Stores whether last tick processed was even or odd. If this doesn't match the current tick, we know to advance the particle simulation one step.
+	stages:       [Uint8Array    , totalPixels], //Particle processing step. Usually 0 = hasn't moved yet, 1 = can't move, >2 = done.
+	colours:      [Uint32Array   , totalPixels], //This is copied directly to canvas.
+	velocityXs:   [Float32Array  , totalPixels],
+	velocityYs:   [Float32Array  , totalPixels],
+	subpixelXs:   [Float32Array  , totalPixels], //Position comes in through x/y coordinate on screen, but this does not capture subpixel position for slow-moving particles.
+	subpixelXs:   [Float32Array  , totalPixels],
+	masses:       [Float32Array  , totalPixels],
+	temperatures: [Float32Array  , totalPixels], //Kelvin
+	scratchA:     [BigUint64Array, totalPixels], //internal state for the particle
+	scratchB:     [BigUint64Array, totalPixels],
+}
+
+//Hydrate our world data structure.
+//First, allocate the memory we need...
+Object.defineProperty(world, 'bytes', {
+	value: new SharedArrayBuffer(
+		Object.values(world).reduce(
+			(accum, [type, entries]) => 
+				+ Math.ceil(accum/type.BYTES_PER_ELEMENT) * type.BYTES_PER_ELEMENT //Align access for 2- and 4-byte types.
+				+ type.BYTES_PER_ELEMENT * entries,
+			0
+		)
+	)
 })
 
-window.world = world //Enable easy script access for debugging.
+//Then, allocate the data views into the memory.
+//This is shared memory which will get updated by the worker threads, off the main thread.
+Object.entries(world).reduce((totalBytesSoFar, [key, [type, entries]]) => {
+	const startingByteOffset = Math.ceil(totalBytesSoFar/type.BYTES_PER_ELEMENT)*type.BYTES_PER_ELEMENT //Align access for 2- and 4-byte types.
+	world[key] = new type(world.bytes, totalBytesSoFar, entries)
+	return startingByteOffset + world[key].byteLength
+}, 0)
 
-Array.prototype.fill.call(world.wrappingBehaviour, 1) //0 is air, 1 is wall. Default to wall. See particles.rs:hydrate_with_data() for the full list.
+Object.freeze(world)
+
+world.wrappingBehaviour.fill(1) //0 is air, 1 is wall. Default to wall.
+world.simulationSize.set([canvas.width, canvas.height])
+
+//Enable easy script access for debugging.
+if (localStorage.devMode) {
+	window.world = world
+}
+
 
 
 ///////////////////////
@@ -147,14 +161,13 @@ renderCore.postMessage({type:'bindToData', data:[world]})
 //the particles in a worker and then efficiently draw the resulting image in the
 //main thread.
 
-drawFrame.context = $("canvas.main").getContext('2d')
+drawFrame.context = canvas.getContext('2d')
 function drawFrame(buffer, width, height) {
 	//If we save the ImageData after transferring the backing array buffer out, transferring the buffer back to this thread doesn't "put it back" into the ImageData's buffer. And since we can't assign it to buffer, we have to recreate the object. Seems fairly light-weight, at least, since we can create the new object with the old buffer.
 	//Anyway, first step, we draw the image data. This way, we don't drop frames when we're resizing, even if we do lag a bit.
 	drawFrame.context.putImageData(new ImageData(new Uint8ClampedArray(buffer), width, height), 0, 0);
 	
 	//Regenereate the buffer here if our canvas has changed size. We could use a ResizeObserver, but we'd have to check here anyway since we never *store* the buffer in a permanent variable - it only ever lives in function args, since ownership is passed around between the main and render threads.
-	const canvas = drawFrame.context.canvas;
 	if (canvas.width != width || canvas.height != height) {
 		({width, height} = canvas)
 		buffer = new ArrayBuffer(4*width*height)
@@ -178,7 +191,7 @@ drawFrame(new ArrayBuffer(4), 1, 1) //Kick off the render loop.
 
 console.info(`Loaded render core.`)
 
-bindWorldToDisplay(world, gameDisplay, {
+bindWorldToDisplay(world, $("#stardust-game"), {
 	dot:  (...args) => renderCore.postMessage({type:'drawDot',  data:args}),
 	line: (...args) => renderCore.postMessage({type:'drawLine', data:args}),
 	rect: (...args) => renderCore.postMessage({type:'drawRect', data:args}),

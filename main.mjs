@@ -1,13 +1,16 @@
 import {bindWorldToDisplay} from './ui.mjs'
 
-if (!window.SharedArrayBuffer) {
+const showErrorMessage = message => 
 	document.body.innerHTML = `
 		<div>
-			<h1>Software Failure</h1>
-			<p>Your browser does not appear to support shared array buffers, which are required by <em>Stardust</em>. Perhaps try another one?</p>
+			<h1>Internal Failure</h1>
+			<p>${message}</p>
 			<p>Guru Meditation 0x${(!!Atomics.waitAsync << 2 | crossOriginIsolated << 1 | isSecureContext << 0).toString(16).toUpperCase().padStart(2, '0')}</p>
 		</div>
 	`
+
+if (!window.SharedArrayBuffer) {
+	showErrorMessage("Your browser does not appear to support shared array buffers, which are required by <em>Stardust</em>. Perhaps try another one?")
 	throw new ReferenceError('SharedArrayBuffer is not defined.')
 }
 
@@ -94,98 +97,48 @@ callbacks.ok.reload = ()=>{
 	window.location.reload()
 }
 
-
-//Wrap a worker for our error-handling callback style, ie, callbacks.ok.whatever = ()=>{}.
-function wrapForCallbacks(worker, callbacks) {
-	worker.addEventListener('message', ({'data': {type, data, error}}) => {
-		if (error !== undefined && data !== undefined)
-			return console.error(`malformed message '${type}', has both data and error`)
-		
-		const callback = 
-			callbacks[error!==undefined?'err':'ok'][type]
-			?? (error!==undefined 
-				? console.error 
-				: console.error(`Unknown main event '${error!==undefined?'err':'ok'}.${type}'.`) )
-		callback(...(data ?? [error]))
-	});
-	
-	return worker
-}
-
-const pendingLogicCores = Array(availableCores).fill().map((_,i)=>{
-	return new Promise(resolve => {
-		const worker = wrapForCallbacks(
-			new Worker('worker/logicWorker.mjs', {type:'module'}),
-			{
-				err: { ...callbacks.err }, 
-				ok: {
-					...callbacks.ok,
-					ready: ()=>{
-						resolve(worker)
-						worker.postMessage({type:'hello', data:[]})
-					},
-				}
-			},
-		)
-	});
-})
-
-const pendingRenderCore = new Promise(resolve => {
-	const worker = wrapForCallbacks(
-		new Worker('worker/renderWorker.mjs', {type:'module'}),
-		{
-			err: { ...callbacks.err }, 
-			ok: {
-				...callbacks.ok,
-				ready: ()=>{
-					resolve(worker)
-				},
-				drawFrame,
-			},
+const pendingSimulationCores = Array(availableCores).fill().map((_,i) =>
+	new Promise(resolve => {
+		const worker = new Worker('worker/sim.mjs', {type:'module'})
+		worker.addEventListener('message', onLoaded)
+		function onLoaded({data}) {
+			if (data[0] !== 'loaded') throw new Error(`Bad load; got unexpected message '${data[0]}'.`)
+			console.info(`loaded sim core ${i}`)
+			worker.removeEventListener('message', onLoaded)
+			worker.postMessage(['start', i, world])
+			resolve(worker)
 		}
-	)
-})
+	})
+)
 
 //Wait for our compute units to become available.
-const logicCores = await Promise.allSettled(pendingLogicCores)
+const simulationCores = await Promise.allSettled(pendingSimulationCores)
 	.then(results => results
 		.filter(result => result.status === "fulfilled")
 		.map(result => result.value))
 
-
-logicCores.forEach((core, coreNumber, cores) => core.postMessage({
-	type: 'start',
-	data: [coreNumber, cores.length, world],
-}))
-
-console.info(`Loaded ${logicCores.length}/${pendingLogicCores.length} logic cores.`)
-if (!logicCores.length) {
-	document.body.innerHTML = `
-		<div>
-			<h1>Software Failure</h1>
-			<p>Failed to load any simulation cores. Perhaps try another browser?</p>
-			<p>Guru Meditation 0x${(!!Atomics.waitAsync << 2 | crossOriginIsolated << 1 | isSecureContext << 0).toString(16).toUpperCase().padStart(2, '0')}</p>
-		</div>
-	`
+console.info(`Loaded ${simulationCores.length}/${pendingSimulationCores.length} logic cores.`)
+if (!simulationCores.length) {
+	showErrorMessage("Could not load any simulation cores. This means the game has nothing to run on, and won't work. Perhaps try another browser?")
 	throw new Error('Failed to load any simulation cores.')
 }
 
 
 
-//Poke shared memory worker threads are waiting on, once per frame.
-(function advanceTick() {
-	if (!Atomics.load(world.workersRunning, 0)) { 
-		Atomics.add(world.tick, 0, 1)
-		Atomics.notify(world.tick, 0)
-		//console.log('incremented frame')
-	} else {
-		//console.log('missed frame')
-	}
-	requestAnimationFrame(advanceTick)
-})()
+////Poke shared memory worker threads are waiting on, once per frame.
+//(function advanceTick() {
+//	if (!Atomics.load(world.workersRunning, 0)) { 
+//		Atomics.add(world.tick, 0, 1)
+//		Atomics.notify(world.tick, 0)
+//		//console.log('incremented frame')
+//	} else {
+//		//console.log('missed frame')
+//	}
+//	requestAnimationFrame(advanceTick)
+//})()
 
 
-
+/*
 const renderCore = await pendingRenderCore
 renderCore.postMessage({type:'hello', data:[]})
 renderCore.postMessage({type:'bindToData', data:[world]})
@@ -233,3 +186,4 @@ bindWorldToDisplay(world, gameDisplay, {
 })
 
 console.info('Bound UI elements.')
+*/

@@ -14,8 +14,14 @@ addEventListener("message", async ({data: [event, workerID, worldBuf]}) => {
 	
 	const calls = wasm.instance.exports
 	console.log('sum', calls.sum(4,5))
-	debugger;
-	console.log('sum2', calls.run(workerID, worldBuf))
+	console.log('sum2', calls.run(worldBuf))
+	console.log(mem.slice(0,5))
+	
+	const mem2 = new Int32Array(5)
+	mem2[0] = 7
+	console.log('sum', calls.sum(1,2))
+	console.log('sum2', calls.run(mem2.buffer))
+	console.log(mem2)
 })
 
 postMessage(['loaded'])

@@ -1,18 +1,21 @@
 const wasmSource = fetch("sim.wasm")
-addEventListener("message", ({data: [event, workerID, world]}) => {
+addEventListener("message", async ({data: [event, workerID, worldBuf]}) => {
 	if (event !== "start") throw new Error(`Unknown event '${event}' sent to worker.`)
 	console.log('loading')
-	WebAssembly.instantiateStreaming(wasmSource, {
-		js: { 
-			workerID: new WebAssembly.Global({ value: 'i32' }, workerID), //Can't be passed via message.
-			world,
-		},
+	
+	const wasm = await WebAssembly.instantiateStreaming(wasmSource, {
 		imports: { 
-			imported_func: (arg) => console.log(arg)
+			imported_func: (arg) => console.log(`imported_func ${workerID}:`, arg)
 		},
-	}).then(wasm=>{
-		console.log('run here', wasm)
 	})
+	
+	const mem = new Int32Array(worldBuf)
+	mem[0] = 2
+	
+	const calls = wasm.instance.exports
+	console.log('sum', calls.sum(4,5))
+	debugger;
+	console.log('sum2', calls.run(workerID, worldBuf))
 })
 
 postMessage(['loaded'])

@@ -67,18 +67,13 @@ const world = {
 //First, allocate the memory we need...
 Object.defineProperty(world, "memory", { 
 	value: (()=>{
-		const WASM_PAGE_SIZE = 65535 //according to https://developer.mozilla.org/en-US/docs/WebAssembly/JavaScript_interface/Memory/Memory, also, there is no constant to reference.
 		const numBytesNeeded = Object.values(world).reduce(
 			(accum, [type, entries]) => 
 				+ Math.ceil(accum/type.BYTES_PER_ELEMENT) * type.BYTES_PER_ELEMENT //Align access for 2- and 4-byte types.
 				+ type.BYTES_PER_ELEMENT * entries,
 			0
 		)
-		return new WebAssembly.Memory({
-			initial: Math.ceil(numBytesNeeded/WASM_PAGE_SIZE),
-			maximum: Math.ceil(numBytesNeeded/WASM_PAGE_SIZE),
-			shared: true,
-		})
+		return new SharedArrayBuffer(numBytesNeeded)
 	})(),
 })
 
@@ -86,7 +81,7 @@ Object.defineProperty(world, "memory", {
 //This is shared memory which will get updated by the worker threads, off the main thread.
 Object.entries(world).reduce((totalBytesSoFar, [key, [type, entries]]) => {
 	const startingByteOffset = Math.ceil(totalBytesSoFar/type.BYTES_PER_ELEMENT)*type.BYTES_PER_ELEMENT //Align access for 2- and 4-byte types.
-	world[key] = new type(world.memory.buffer, totalBytesSoFar, entries)
+	world[key] = new type(world.memory, totalBytesSoFar, entries)
 	return startingByteOffset + world[key].byteLength
 }, 0)
 
@@ -125,7 +120,7 @@ const pendingSimulationCores = Array(availableCores).fill().map((_,i) =>
 			if (data[0] !== 'loaded') throw new Error(`Bad load; got unexpected message '${data[0]}'.`)
 			console.info(`loaded sim core ${i}`)
 			worker.removeEventListener('message', onLoaded)
-			worker.postMessage(['start', i+1, world]) //Note: Sim workers start at 1. (Check the definition of world.locks for possible values.)
+			worker.postMessage(['start', i+1, world.memory]) //Note: Sim workers start at 1. (Check the definition of world.locks for possible values.)
 			resolve(worker)
 		}
 	})

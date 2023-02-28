@@ -6,7 +6,7 @@ Note: We may need to recompile std with `-Zbuild-std` somehow, based on [Rust is
 
 ## Outcome
 
-I am having trouble finding or triggering the mechanism with which to pass an array reference to a function via rustc's emitted code. When I do so in [worker/sim.mjs:42](worker/sim.mjs#L42), the resulting pointer in Rust is simply null and no memory is shared. We really need a mechanism to read and write shared memory from a WASM global, or be able to provide the backing memory our WASM will use from which we could return an index, but [that doesn't seem to exist](https://users.rust-lang.org/t/how-should-env-memory-be-provided-to-wasm-programs/80184).
+I am having trouble finding or triggering the mechanism with which to pass an array reference to a function via rustc's emitted code. When I do so in [worker/sim.mjs:24](worker/sim.mjs#L24), the resulting pointer in Rust is simply null and no memory is shared. We really need a mechanism to read and write shared memory from a WASM global, or be able to provide the backing memory our WASM will use from which we could return an index, but [that doesn't seem to exist](https://users.rust-lang.org/t/how-should-env-memory-be-provided-to-wasm-programs/80184).
 
 Of further note, it doesn't seem like we have access to all the atomic functions from Rust - [the wasm32 module](https://doc.rust-lang.org/beta/core/arch/wasm32/index.html) only has a few to wait on values.
 

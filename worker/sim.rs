@@ -7,10 +7,15 @@ use core::ptr::addr_of;
 mod js {
 	#[link(wasm_import_module = "imports")]
 	extern "C" {
-		pub fn logNum(_: usize);
+		pub fn _logNum(_: usize);
 		pub fn abort(msgPtr: usize, filePtr: usize, line: u32, column: u32) -> !;
+		
+		pub fn wScratchA(index: usize, value: u64);
+		pub fn waScratchA(index: u32, value: u64);
 	}
 }
+
+use js::*;
 
 //#![wasm_import_memory] only in wasm-bindgen
 
@@ -20,11 +25,10 @@ pub extern fn sum(x: i32, y: i32) -> i32 {
 }
 
 #[no_mangle]
-pub unsafe extern fn run(world: *mut i32) -> i32 {
-	js::logNum(99);
-	world.add(1).write(0xFF);
-	//world.offset_from(ptr::null()) is always 0
-	world.read_volatile()
+pub unsafe extern fn run() {
+	for n in 100000..200000 {
+		waScratchA(n, u64::MAX-(n as u64))
+	}
 }
 
 #[panic_handler]

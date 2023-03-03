@@ -120,7 +120,7 @@ const pendingSimulationCores = Array(availableCores).fill().map((_,i) =>
 			if (data[0] !== 'loaded') throw new Error(`Bad load; got unexpected message '${data[0]}'.`)
 			console.info(`loaded sim core ${i}`)
 			worker.removeEventListener('message', onLoaded)
-			worker.postMessage(['start', i+1, world.memory]) //Note: Sim workers start at 1. (Check the definition of world.locks for possible values.)
+			worker.postMessage(['start', i+1, world, world.memory]) //Note: Sim workers start at 1. (Check the definition of world.locks for possible values.)
 			resolve(worker)
 		}
 	})

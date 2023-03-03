@@ -11,7 +11,7 @@ const stringFromMem = (mem, index) =>
 		)
 		: "«null»"
 
-addEventListener("message", async ({data: [event, workerID, worldBuf]}) => {
+addEventListener("message", async ({data: [event, workerID, world, worldBuf]}) => {
 	if (event !== "start") throw new Error(`Unknown event '${event}' sent to worker.`)
 	console.log('loading')
 	
@@ -22,23 +22,39 @@ addEventListener("message", async ({data: [event, workerID, worldBuf]}) => {
 				const message  = stringFromMem(wasm.instance.exports.memory, messagePtr )
 				throw new Error(`${message} (${location}:${row}:${column}, thread ${workerID})`)
 			},
-			logNum: arg => console.log(`sim ${workerID}:`, arg)
+			logNum: arg => console.log(`sim ${workerID}:`, arg),
+			
+			wScratchA: (index, value) => world.scratchA[index] = value,
+			waScratchA: Atomics.store.bind(null, world.scratchA),
 		},
 	})
 	
-	const mem = new Int32Array(worldBuf)
-	mem[0] = 2
-	
 	const calls = wasm.instance.exports
-	console.log('sum', calls.sum(4,5))
-	console.log('sum2', calls.run(worldBuf))
-	console.log(mem.slice(0,5))
 	
-	const mem2 = new Int32Array(5)
-	mem2[0] = 7
-	console.log('sum', calls.sum(1,2))
-	console.log('sum2', calls.run(mem2.buffer))
-	console.log(mem2)
+	let now = () => performance.now();
+	
+	let total = now()
+	const timings = [];
+	for (let i = 0; i < 500; i++) {
+		let jsTime = now()
+		for (let i = 0; i < 100000; i++) {
+			Atomics.store(world.scratchA, i, BigInt(i));
+		}
+		jsTime = now()-jsTime
+		
+		let wasmTime = now()
+		calls.run()
+		wasmTime = now()-wasmTime
+		
+		timings.push([jsTime, wasmTime])
+	}
+	
+	total = now()-total
+	console.log('js, wasm')
+	console.table(timings)
+	console.log({total})
+	
+	console.log(world.scratchA.slice(0,5))
 })
 
 postMessage(['loaded'])

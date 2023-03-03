@@ -1,11 +1,28 @@
 const wasmSource = fetch("sim.wasm")
+
+//Extract a utf-8 string from WASM memory, converting it to a utf-16 Javascript String.
+//Very much not zero-copy.
+const stringFromMem = (mem, index) =>
+	index
+		? new TextDecoder('utf-8').decode(
+			new Uint8Array(mem.buffer, index, 
+				new Uint8Array(mem.buffer, index).indexOf(0)
+			)
+		)
+		: "«null»"
+
 addEventListener("message", async ({data: [event, workerID, worldBuf]}) => {
 	if (event !== "start") throw new Error(`Unknown event '${event}' sent to worker.`)
 	console.log('loading')
 	
 	const wasm = await WebAssembly.instantiateStreaming(wasmSource, {
 		imports: { 
-			imported_func: (arg) => console.log(`imported_func ${workerID}:`, arg)
+			abort: (messagePtr, locationPtr, row, column) => {
+				const location = stringFromMem(wasm.instance.exports.memory, locationPtr)
+				const message  = stringFromMem(wasm.instance.exports.memory, messagePtr )
+				throw new Error(`${message} (${location}:${row}:${column}, thread ${workerID})`)
+			},
+			logNum: arg => console.log(`sim ${workerID}:`, arg)
 		},
 	})
 	

@@ -65,23 +65,26 @@ const world = {
 
 //Hydrate our world data structure.
 //First, allocate the memory we need...
-Object.defineProperty(world, "memory", { 
-	value: (()=>{
-		const numBytesNeeded = Object.values(world).reduce(
-			(accum, [type, entries]) => 
-				+ Math.ceil(accum/type.BYTES_PER_ELEMENT) * type.BYTES_PER_ELEMENT //Align access for 2- and 4-byte types.
-				+ type.BYTES_PER_ELEMENT * entries,
-			0
-		)
-		return new SharedArrayBuffer(numBytesNeeded)
-	})(),
-})
+const memory = (()=>{
+	const WASM_PAGE_SIZE = 65535 //according to https://developer.mozilla.org/en-US/docs/WebAssembly/JavaScript_interface/Memory/Memory, also, there is no constant to reference.
+	const numBytesNeeded = Object.values(world).reduce(
+		(accum, [type, entries]) => 
+			+ Math.ceil(accum/type.BYTES_PER_ELEMENT) * type.BYTES_PER_ELEMENT //Align access for 2- and 4-byte types.
+			+ type.BYTES_PER_ELEMENT * entries,
+		0
+	)
+	return new WebAssembly.Memory({
+		initial: Math.ceil(numBytesNeeded/WASM_PAGE_SIZE),
+		maximum: Math.ceil(numBytesNeeded/WASM_PAGE_SIZE),
+		shared: true,
+	})
+})()
 
 //Then, allocate the data views into the memory.
 //This is shared memory which will get updated by the worker threads, off the main thread.
 Object.entries(world).reduce((totalBytesSoFar, [key, [type, entries]]) => {
 	const startingByteOffset = Math.ceil(totalBytesSoFar/type.BYTES_PER_ELEMENT)*type.BYTES_PER_ELEMENT //Align access for 2- and 4-byte types.
-	world[key] = new type(world.memory, totalBytesSoFar, entries)
+	world[key] = new type(memory.buffer, totalBytesSoFar, entries)
 	return startingByteOffset + world[key].byteLength
 }, 0)
 
@@ -112,15 +115,15 @@ callbacks.ok.reload = ()=>{
 	window.location.reload()
 }
 
-const pendingSimulationCores = Array(availableCores).fill().map((_,i) =>
+const pendingSimulationCores = Array(availableCores).fill().map((_, coreNumber) =>
 	new Promise(resolve => {
 		const worker = new Worker('worker/sim.mjs', {type:'module'})
 		worker.addEventListener('message', onLoaded)
 		function onLoaded({data}) {
 			if (data[0] !== 'loaded') throw new Error(`Bad load; got unexpected message '${data[0]}'.`)
-			console.info(`loaded sim core ${i}`)
+			console.info(`Loaded sim core ${coreNumber+1}/${availableCores}.`)
 			worker.removeEventListener('message', onLoaded)
-			worker.postMessage(['start', i+1, world, world.memory]) //Note: Sim workers start at 1. (Check the definition of world.locks for possible values.)
+			worker.postMessage(['start', coreNumber+1, world, memory, 0]) //Note: Sim worker IDs start at 1. (Check the definition of world.locks for more details.)
 			resolve(worker)
 		}
 	})
@@ -132,7 +135,7 @@ const simulationCores = await Promise.allSettled(pendingSimulationCores)
 		.filter(result => result.status === "fulfilled")
 		.map(result => result.value))
 
-console.info(`Loaded ${simulationCores.length}/${pendingSimulationCores.length} logic cores.`)
+console.info(`Loaded all logic cores.`)
 if (!simulationCores.length) {
 	showErrorMessage("Could not load any simulation cores. This means the game has nothing to run on, and won't work. Perhaps try another browser?")
 	throw new Error('Failed to load any simulation cores.')

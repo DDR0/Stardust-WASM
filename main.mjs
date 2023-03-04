@@ -96,6 +96,7 @@ world.simulationSize.set([canvas.width, canvas.height])
 //Enable easy script access for debugging.
 if (localStorage.devMode) {
 	window.world = world
+	window.memory = memory
 }
 
 
@@ -123,7 +124,10 @@ const pendingSimulationCores = Array(availableCores).fill().map((_, coreNumber) 
 			if (data[0] !== 'loaded') throw new Error(`Bad load; got unexpected message '${data[0]}'.`)
 			console.info(`Loaded sim core ${coreNumber+1}/${availableCores}.`)
 			worker.removeEventListener('message', onLoaded)
-			worker.postMessage(['start', coreNumber+1, world, memory, 0]) //Note: Sim worker IDs start at 1. (Check the definition of world.locks for more details.)
+			
+			//Note: We can pass memory XOR world here in Chrome.
+			//Note: Sim worker IDs start at 1. Check the definition of world.locks for more details.
+			worker.postMessage(['start', coreNumber+1, memory])
 			resolve(worker)
 		}
 	})

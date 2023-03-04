@@ -11,12 +11,13 @@ const stringFromMem = (mem, index) =>
 		)
 		: "«null»"
 
-addEventListener("message", async ({data: [event, workerID, world, worldBackingBuffer]}) => {
+addEventListener('message', (msg)=>console.info(`Worker Thread: ${msg.data}.`))
+addEventListener("x-message", async ({data: [event, workerID, world, worldBackingBuffer]}) => {
 //addEventListener("message", async (data) => {
 	console.log("WBB", worldBackingBuffer);
 	if (event !== "start") throw new Error(`Unknown event '${event}' sent to worker.`)
 	console.log('loading')
-	
+	return
 	const wasm = await WebAssembly.instantiateStreaming(wasmSource, {
 		imports: { 
 			abort: (messagePtr, locationPtr, row, column) => {

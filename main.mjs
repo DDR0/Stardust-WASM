@@ -119,15 +119,17 @@ callbacks.ok.reload = ()=>{
 const pendingSimulationCores = Array(availableCores).fill().map((_, coreNumber) =>
 	new Promise(resolve => {
 		const worker = new Worker('worker/sim.mjs', {type:'module'})
+		worker.addEventListener('error', err => console.error(err))
+		worker.addEventListener('messageerror', err => console.error(err))
 		worker.addEventListener('message', onLoaded)
 		function onLoaded({data}) {
 			if (data[0] !== 'loaded') throw new Error(`Bad load; got unexpected message '${data[0]}'.`)
 			console.info(`Loaded sim core ${coreNumber+1}/${availableCores}.`)
 			worker.removeEventListener('message', onLoaded)
 			
-			//Note: We can pass memory XOR world here in Chrome.
+			//Must transfer worldBackingBuffer BEFORE world. https://bugs.chromium.org/p/chromium/issues/detail?id=1421524
 			//Note: Sim worker IDs start at 1. Check the definition of world.locks for more details.
-			worker.postMessage(['start', coreNumber+1, memory])
+			worker.postMessage(['start', coreNumber+1, memory, world])
 			resolve(worker)
 		}
 	})

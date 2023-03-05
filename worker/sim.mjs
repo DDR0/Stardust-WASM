@@ -11,13 +11,11 @@ const stringFromMem = (mem, index) =>
 		)
 		: "«null»"
 
-addEventListener('message', (msg)=>console.info(`Worker Thread: ${msg.data}.`))
-addEventListener("x-message", async ({data: [event, workerID, world, worldBackingBuffer]}) => {
-//addEventListener("message", async (data) => {
-	console.log("WBB", worldBackingBuffer);
-	if (event !== "start") throw new Error(`Unknown event '${event}' sent to worker.`)
-	console.log('loading')
-	return
+//Must transfer worldBackingBuffer BEFORE world. https://bugs.chromium.org/p/chromium/issues/detail?id=1421524
+addEventListener("message", async ({data: [event, workerID, worldBackingBuffer, world]}) => {
+	console.log('time to run')
+	/*
+	
 	const wasm = await WebAssembly.instantiateStreaming(wasmSource, {
 		imports: { 
 			abort: (messagePtr, locationPtr, row, column) => {
@@ -58,6 +56,7 @@ addEventListener("x-message", async ({data: [event, workerID, world, worldBackin
 	console.log({total})
 	
 	console.log(world.scratchA.slice(0,5))
+	*/
 })
 
 postMessage(['loaded'])

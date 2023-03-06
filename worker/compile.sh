@@ -24,13 +24,10 @@ if [[ $1 == *uninit ]]; then
 	exit 0
 fi
 
-echo compiling *.rs
-
-if command -v entr
+if command -v entr > /dev/null
 then
-	echo *.rs | entr -s "
-		cargo build --target=wasm32-unknown-unknown -Zbuild-std
-	"
+	echo Watching *.rs for changes.
+	echo *.rs | entr -s "cargo build --target=wasm32-unknown-unknown -Zbuild-std"
 else
 	cargo build --target=wasm32-unknown-unknown -Zbuild-std
 fi

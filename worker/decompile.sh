@@ -1,0 +1,1 @@
+wasm2wat sim.wasm -o sim.wat --enable-threads

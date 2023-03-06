@@ -10,24 +10,36 @@ mod js {
 		pub fn _logNum(_: usize);
 		pub fn abort(msgPtr: usize, filePtr: usize, line: u32, column: u32) -> !;
 		
-		pub fn wScratchA(index: usize, value: u64);
+		pub fn wScratchA(index: u32, value: u64);
 		pub fn waScratchA(index: u32, value: u64);
 	}
 }
 
 use js::*;
 
-//#![wasm_import_memory] only in wasm-bindgen
-
 #[no_mangle]
-pub extern fn sum(x: i32, y: i32) -> i32 {
-	x + y
+pub extern fn fwaScratchA(index: u32, value: u64) {
+	let _ = value + (index as u64);
 }
 
 #[no_mangle]
-pub unsafe extern fn run() {
-	for n in 100000..200000 {
+pub unsafe extern fn runW() {
+	for n in 10000..20000 {
 		waScratchA(n, u64::MAX-(n as u64))
+	}
+}
+
+#[no_mangle]
+pub unsafe extern fn runWA() {
+	for n in 10000..20000 {
+		wScratchA(n, u64::MAX-(n as u64))
+	}
+}
+
+#[no_mangle]
+pub unsafe extern fn runFWA() {
+	for n in 10000..20000 {
+		fwaScratchA(n, u64::MAX-(n as u64))
 	}
 }
 

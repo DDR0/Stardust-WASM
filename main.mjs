@@ -127,7 +127,7 @@ const pendingSimulationCores = Array(availableCores).fill().map((_, coreNumber) 
 			console.info(`Loaded sim core ${coreNumber+1}/${availableCores}.`)
 			worker.removeEventListener('message', onLoaded)
 			
-			//Must transfer worldBackingBuffer BEFORE world. https://bugs.chromium.org/p/chromium/issues/detail?id=1421524
+			//Must transfer memory BEFORE world. https://bugs.chromium.org/p/chromium/issues/detail?id=1421524
 			//Note: Sim worker IDs start at 1. Check the definition of world.locks for more details.
 			worker.postMessage(['start', coreNumber+1, memory, world])
 			resolve(worker)

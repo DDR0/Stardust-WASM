@@ -1,0 +1,6 @@
+[target.wasm32-unknown-unknown]
+rustflags = [
+    "-C", "target-feature=+atomics,+mutable-globals,+bulk-memory",
+    "-C", "link-args=--no-entry --shared-memory --import-memory --max-memory=2130706432",
+]
+# RUSTFLAGS='--codegen target-feature=+atomics,+mutable-globals,+bulk-memory --codegen link-args=--no-entry --enable-threads --shared-memory --import-memory --max-memory=2130706432'

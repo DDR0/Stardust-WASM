@@ -5,22 +5,25 @@ const wasmSource = fetch("sim.wasm")
 const stringFromMem = (mem, index) =>
 	index
 		? new TextDecoder('utf-8').decode(
-			new Uint8Array(mem.buffer, index, 
-				new Uint8Array(mem.buffer, index).indexOf(0)
+			//Copy shared memory out to an unshared array for TextDecoder.
+			//Warning: Racy. Time of check for trailing null != time of copy.
+			new Uint8Array(mem.buffer).slice(
+				index,
+				index + new Uint8Array(mem.buffer, index).indexOf(0),
 			)
 		)
 		: "«null»"
 
 //Must transfer worldBackingBuffer BEFORE world. https://bugs.chromium.org/p/chromium/issues/detail?id=1421524
 addEventListener("message", async ({data: [event, workerID, worldBackingBuffer, world]}) => {
-	console.log('time to run')
-	/*
-	
 	const wasm = await WebAssembly.instantiateStreaming(wasmSource, {
-		imports: { 
+		env: {
+			memory: worldBackingBuffer,
+		},
+		imports: {
 			abort: (messagePtr, locationPtr, row, column) => {
-				const location = stringFromMem(wasm.instance.exports.memory, locationPtr)
-				const message  = stringFromMem(wasm.instance.exports.memory, messagePtr )
+				const location = stringFromMem(worldBackingBuffer, locationPtr)
+				const message  = stringFromMem(worldBackingBuffer, messagePtr )
 				throw new Error(`${message} (${location}:${row}:${column}, thread ${workerID})`)
 			},
 			logNum: arg => console.log(`sim ${workerID}:`, arg),
@@ -30,7 +33,7 @@ addEventListener("message", async ({data: [event, workerID, worldBackingBuffer, 
 		},
 	})
 	
-	const calls = wasm.instance.exports
+	const sim = wasm.instance.exports
 	
 	let now = () => performance.now();
 	
@@ -38,13 +41,18 @@ addEventListener("message", async ({data: [event, workerID, worldBackingBuffer, 
 	const timings = [];
 	for (let i = 0; i < 500; i++) {
 		let jsTime = now()
-		for (let i = 0; i < 100000; i++) {
+		for (let i = 0; i < 10000; i++) {
 			Atomics.store(world.scratchA, i, BigInt(i));
 		}
 		jsTime = now()-jsTime
 		
 		let wasmTime = now()
-		calls.run()
+		try {
+			sim.runWA()
+		} catch (e) {
+			console.log(`core ${workerID}, iteration ${i}`)
+			console.error(e)
+		}
 		wasmTime = now()-wasmTime
 		
 		timings.push([jsTime, wasmTime])
@@ -52,11 +60,10 @@ addEventListener("message", async ({data: [event, workerID, worldBackingBuffer, 
 	
 	total = now()-total
 	console.log('js, wasm')
-	console.table(timings)
-	console.log({total})
+	//console.table(timings)
+	console.log(`${timings.reduce((a,t)=>a+t[0], 0).toFixed(2)}ms + ${timings.reduce((a,t)=>a+t[1], 0).toFixed(2)}ms = ${total.toFixed(2)}ms`)
 	
 	console.log(world.scratchA.slice(0,5))
-	*/
 })
 
 postMessage(['loaded'])

@@ -1,8 +1,31 @@
 # DDR's __Stardust__
 
-A nacent falling sand game.
+Minimal reproduction of weird worker.postMessage() error.
 
-## Stardust Options
+Serve with `./example_server.py` and visit http://127.0.0.1:8080/ to reproduce.
 
-- `localStorage.devMode = true`: Expose `world` in the global context, for debugging. (May affect other dev-y options too.)
-- `localStorage.coreOverride = N`: Set the number of processing cores used to N, where N >= 0. If N is 0, processing cores are calculated automatically based on `navigator.hardwareConcurrency`.
+Expected console output
+---
+```
+Worker Thread: [object Object],[object WebAssembly.Memory].
+Worker Thread: [object WebAssembly.Memory],[object Object].
+Worker Thread: [object Object],[object WebAssembly.Memory].
+Worker Thread: [object WebAssembly.Memory],[object Object].
+```
+
+Actual console output
+---
+- Firefox 109.0.1:
+	```
+	Worker Thread: [object Object],[object WebAssembly.Memory]. sim.mjs:1:47
+	[object MessageEvent] sim.mjs:2:45
+	Worker Thread: [object Object],[object WebAssembly.Memory]. sim.mjs:1:47
+	[object MessageEvent]
+	```
+- Chrome 110.0.5481.100:
+	```
+	Worker Thread: null.
+	Worker Thread: [object WebAssembly.Memory],[object Object].
+	Worker Thread: null.
+	Worker Thread: [object WebAssembly.Memory],[object Object].
+	```

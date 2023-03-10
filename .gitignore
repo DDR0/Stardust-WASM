@@ -1,5 +1,0 @@
-target
-crate-wasm/pkg
-wasm-pack.log
-node_modules
-dist

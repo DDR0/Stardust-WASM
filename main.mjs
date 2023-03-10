@@ -5,7 +5,7 @@ const memory = new WebAssembly.Memory({
 	shared: true,
 })
 
-//Object must have two typed arrays backed by the same buffer.
+//Container object - just the two typed arrays matter.
 const world = {
 	a: new Int32Array(memory.buffer, 0, 0),
 	b: new Int32Array(memory.buffer, 0, 0),

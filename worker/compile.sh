@@ -27,7 +27,10 @@ fi
 if command -v entr > /dev/null
 then
 	echo Watching *.rs for changes.
-	echo *.rs | entr -s "cargo build --target=wasm32-unknown-unknown -Zbuild-std"
+	echo *.rs | entr -s "
+		cargo build --target=wasm32-unknown-unknown -Zbuild-std
+		cp target/wasm32-unknown-unknown/debug/stardust-worker.wasm sim.wasm
+	"
 else
 	cargo build --target=wasm32-unknown-unknown -Zbuild-std
 fi

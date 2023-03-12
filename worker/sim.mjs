@@ -14,8 +14,22 @@ const stringFromMem = (mem, index) =>
 		)
 		: "«null»"
 
-//Must transfer worldBackingBuffer BEFORE world. https://bugs.chromium.org/p/chromium/issues/detail?id=1421524
-addEventListener("message", async ({data: [event, workerID, worldBackingBuffer, world]}) => {
+//See message sending code for why we use multiple messages. [Adu1bZ]
+let messageArgQueue = [];
+addEventListener("message", ({data}) => {
+	messageArgQueue.push(data)
+	if (messageArgQueue.length === 4) {
+		self[messageArgQueue[0]].apply(0, messageArgQueue.slice(1))
+	}
+})
+
+self.start = async (workerID, worldBackingBuffer, world) => {
+	console.info(`Sim core ${workerID} running.`)
+	
+	self.workerID = workerID
+	self.worldBackingBuffer = worldBackingBuffer
+	self.world = world
+	
 	const wasm = await WebAssembly.instantiateStreaming(wasmSource, {
 		env: {
 			memory: worldBackingBuffer,
@@ -64,6 +78,6 @@ addEventListener("message", async ({data: [event, workerID, worldBackingBuffer, 
 	console.log(`${timings.reduce((a,t)=>a+t[0], 0).toFixed(2)}ms + ${timings.reduce((a,t)=>a+t[1], 0).toFixed(2)}ms = ${total.toFixed(2)}ms`)
 	
 	console.log(world.scratchA.slice(0,5))
-})
+}
 
-postMessage(['loaded'])
+console.info("Sim core listening.")

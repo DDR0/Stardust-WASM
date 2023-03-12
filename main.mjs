@@ -15,7 +15,7 @@ if (!window.SharedArrayBuffer) {
 }
 
 if (!Atomics.waitAsync) { //Firefox doesn't support asyncWait as of 2023-01-28.
-	console.warn('Atomics.waitAsync not available; glitching may occur when resized.')
+	console.warn('Atomics.waitAsync is not available; glitching may occur when resized.')
 }
 
 const $ = document.querySelector.bind(document);
@@ -105,47 +105,30 @@ if (localStorage.devMode) {
 //  Set up workers.  //
 ///////////////////////
 
-const pong = val => { console.log('pong', val) }
+const simulationCores = new Array(availableCores).fill().map((_, coreIndex) => {
+	const coreNumber = coreIndex+1 //Sim worker IDs start at 1. Check the definition of world.locks for more details.
+	const worker = new Worker('worker/sim.mjs', {type:'module'})
+	worker.addEventListener('error', err => console.error(`sim ${coreNumber}:`, err))
+	worker.addEventListener('messageerror', err => console.error(`send ${coreNumber}:`, err))
+	worker.addEventListener('message', msg => console.log(`sim ${coreNumber}:`, msg));
+	
+	//Marshal the "start" message across multiple postMessages because of the following bugs: [Adu1bZ]
+	//	- Must transfer memory BEFORE world. https://bugs.chromium.org/p/chromium/issues/detail?id=1421524
+	//	- Must transfer world BEFORE memory. https://bugzilla.mozilla.org/show_bug.cgi?id=1821582
+	['start', coreNumber, memory, world]
+		.forEach(arg => worker.postMessage(arg))
+	
+	console.info(`Initialised sim core ${coreNumber}/${availableCores}.`)
+	
+	return worker
+})
 
-const callbacks = { ok: Object.create(null), err: Object.create(null) } //Default, shared callbacks.
-callbacks.ok.hello = pong
-//callbacks.ok.update = graphUi.repaint
-callbacks.ok.pong = pong
-callbacks.ok.reload = ()=>{
-	console.info('Reload requested from worker.')
-	window.location.reload()
-}
-
-const pendingSimulationCores = Array(availableCores).fill().map((_, coreNumber) =>
-	new Promise(resolve => {
-		const worker = new Worker('worker/sim.mjs', {type:'module'})
-		worker.addEventListener('error', err => console.error(err))
-		worker.addEventListener('messageerror', err => console.error(err))
-		worker.addEventListener('message', onLoaded)
-		function onLoaded({data}) {
-			if (data[0] !== 'loaded') throw new Error(`Bad load; got unexpected message '${data[0]}'.`)
-			console.info(`Loaded sim core ${coreNumber+1}/${availableCores}.`)
-			worker.removeEventListener('message', onLoaded)
-			
-			//Must transfer memory BEFORE world. https://bugs.chromium.org/p/chromium/issues/detail?id=1421524
-			//Note: Sim worker IDs start at 1. Check the definition of world.locks for more details.
-			worker.postMessage(['start', coreNumber+1, memory, world])
-			resolve(worker)
-		}
-	})
-)
-
-//Wait for our compute units to become available.
-const simulationCores = await Promise.allSettled(pendingSimulationCores)
-	.then(results => results
-		.filter(result => result.status === "fulfilled")
-		.map(result => result.value))
-
-console.info(`Loaded all logic cores.`)
 if (!simulationCores.length) {
-	showErrorMessage("Could not load any simulation cores. This means the game has nothing to run on, and won't work. Perhaps try another browser?")
-	throw new Error('Failed to load any simulation cores.')
+	showErrorMessage("This means the game has nothing to run on, and won't work. Perhaps try another browser?")
+	throw new Error('sim load failure')
 }
+
+console.info(`Main thread ready.`)
 
 
 

@@ -57,12 +57,6 @@ self.start = async (workerID, worldBackingBuffer, world) => {
 	
 	const sim = wasm.instance.exports
 	
-	//I think our heaps are in shared memory, along with everything else.
-	//Try to offset them without hacking the compiler, since --shared-memory in .cargo/config.toml doesn't seem to be working.
-	//This will only work if the heap pointer stuff is not also in shared memory, which it probably is. (It could be using WASM locals or something.)
-	//The other alternative is to try writing Rust with [noalloc].
-	sim.leakMem(workerID - 1);
-	
 	let now = () => performance.now();
 	
 	let total = now()

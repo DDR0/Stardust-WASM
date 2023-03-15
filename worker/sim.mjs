@@ -1,5 +1,11 @@
 const wasmSource = fetch("sim.wasm")
 
+const assert = (condition, message) => {
+	class AssertionError extends Error { name = "AssertionError" }
+	if (!message) { throw new Error('Missing message for assert.') }
+	if (!condition) { throw new AssertionError(message) }
+}
+
 //Extract a utf-8 string from WASM memory, converting it to a utf-16 Javascript String.
 //Very much not zero-copy.
 const stringFromMem = (mem, index) =>
@@ -24,11 +30,13 @@ addEventListener("message", ({data}) => {
 })
 
 self.start = async (workerID, worldBackingBuffer, world) => {
-	console.info(`Sim core ${workerID} running.`)
+	console.info(`Sim core ${workerID} started.`)
+	assert(workerID > 0, "Worker ID must be positive.")
 	
 	self.workerID = workerID
 	self.worldBackingBuffer = worldBackingBuffer
 	self.world = world
+	
 	
 	const wasm = await WebAssembly.instantiateStreaming(wasmSource, {
 		env: {
@@ -49,6 +57,12 @@ self.start = async (workerID, worldBackingBuffer, world) => {
 	
 	const sim = wasm.instance.exports
 	
+	//I think our heaps are in shared memory, along with everything else.
+	//Try to offset them without hacking the compiler, since --shared-memory in .cargo/config.toml doesn't seem to be working.
+	//This will only work if the heap pointer stuff is not also in shared memory, which it probably is. (It could be using WASM locals or something.)
+	//The other alternative is to try writing Rust with [noalloc].
+	sim.leakMem(workerID - 1);
+	
 	let now = () => performance.now();
 	
 	let total = now()
@@ -64,8 +78,7 @@ self.start = async (workerID, worldBackingBuffer, world) => {
 		try {
 			sim.runWA()
 		} catch (e) {
-			console.log(`core ${workerID}, iteration ${i}`)
-			console.error(e)
+			console.error(`core ${workerID}, iteration ${i}`, e)
 		}
 		wasmTime = now()-wasmTime
 		

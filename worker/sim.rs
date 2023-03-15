@@ -3,6 +3,7 @@
 
 use core::panic::PanicInfo;
 use core::ptr::addr_of;
+use core::mem::forget;
  
 mod js {
 	#[link(wasm_import_module = "imports")]
@@ -40,6 +41,14 @@ pub unsafe extern fn runWA() {
 pub unsafe extern fn runFWA() {
 	for n in 10000..20000 {
 		fwaScratchA(n, u64::MAX-(n as u64))
+	}
+}
+
+#[no_mangle]
+pub unsafe extern fn leakMem(n_mb: u32) { //could also be in pages? But I don't think we're aligned anyhow?
+	for _ in 0..n_mb {
+		let array: [u64; 16384] = [0; 16384];
+		forget(array);
 	}
 }
 

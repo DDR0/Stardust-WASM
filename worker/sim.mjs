@@ -65,7 +65,7 @@ self.start = async (workerID, worldBackingBuffer, world) => {
 		console.error(`core ${workerID}`, e)
 	}
 	
-	console.log('wasm time', now()-wasmTime)
+	console.log(`wasm time: ${(now()-wasmTime).toFixed(2)}ms`)
 	
 	console.log(worldBackingBuffer.buffer.slice(wasmMemoryStartingByte, wasmMemoryStartingByte+100))
 }

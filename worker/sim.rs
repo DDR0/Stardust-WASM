@@ -61,7 +61,7 @@ fn get_world() -> &'static mut World {
 pub unsafe extern fn run(worker_id: i32) {
 	let mut world = get_world();
 	//_log_num(world as *const World as usize);
-	for n in 0..3 {
+	for n in 0..(1600*1200) {
 		if let Ok(_) = world.locks[n].compare_exchange(
 			NULL_ID, 
 			worker_id, 

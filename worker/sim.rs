@@ -8,7 +8,7 @@ use core::sync::atomic::{AtomicI32, Ordering};
 mod js {
 	#[link(wasm_import_module = "imports")]
 	extern "C" {
-		pub fn log_num(number: usize);
+		pub fn _log_num(number: usize);
 		pub fn abort(msgPtr: usize, filePtr: usize, line: u32, column: u32) -> !;
 	}
 }
@@ -60,7 +60,7 @@ fn get_world() -> &'static mut World {
 #[no_mangle]
 pub unsafe extern fn run(worker_id: i32) {
 	let mut world = get_world();
-	//log_num(world as *const World as usize);
+	//_log_num(world as *const World as usize);
 	for n in 0..3 {
 		if let Ok(_) = world.locks[n].compare_exchange(
 			NULL_ID, 
@@ -77,13 +77,13 @@ pub unsafe extern fn run(worker_id: i32) {
 #[panic_handler]
 unsafe fn panic(info: &PanicInfo) -> ! {
 	if let Some(location) = info.location() { //`info.location` is always None.
-			js::abort(
+			abort(
 				ptr::addr_of!(**info.payload().downcast_ref::<&str>().unwrap_or(&"unknown panic")) as *const() as usize,
 				ptr::addr_of!(*location.file()) as *const() as usize,
 				location.line(),
 				location.column()
 			);
 	} else {
-		js::abort(0, 0, 0, 0)
+		abort(0, 0, 0, 0)
 	}
 }

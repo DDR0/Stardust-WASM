@@ -35,17 +35,17 @@ const availableCores =
 const maxScreenRes = Object.freeze({ x: 3840, y: 2160 }) //4k resolution, probably no sense reserving more memory than that especially given we expect to scale up our pixels.
 const totalPixels = maxScreenRes.x * maxScreenRes.y
 
-//Allocate simulation memory.
-//Could use a double-buffer system, but we would have to copy everything from one buffer to the other each frame. Benefit: no tearing.
+//Define simulation memory.
+//Could use a double-buffer system, but we would have to copy everything from one buffer to the other each frame. Benefit: no tearing. (ed. note: This is taken care of by locking now?)
 const world = {
 	__proto__: null,
 	
 	//Some global configuration.
-	globalLock:        [Int32Array, 1], //Global lock for all world data, so we can resize the world. Also acts as a "pause" button. Bool, but atomic operations like i32.
-	globalTick:        [Int32Array, 1], //Current global tick.
-	workersRunning:    [Int32Array, 1], //Used by workers, last one to finish increments tick.
-	simulationSize:    [Int32Array, 2], //width/height
-	wrappingBehaviour: [Uint8Array, 4], //top, left, bottom, right: Set to particle type 0 or 1.
+	globalLock:        [Int32Array,  1], //Global lock for all world data, so we can resize the world. Also acts as a "pause" button. Bool, but atomic operations like i32.
+	globalTick:        [Int32Array,  1], //Current global tick.
+	workersRunning:    [Int32Array,  1], //Used by workers, last one to finish increments tick.
+	simulationSize:    [Uint32Array, 2], //width/height
+	wrappingBehaviour: [Uint8Array,  4], //top, left, bottom, right: Set to particle type 0 or 1.
 	
 	//Particle attribute arrays.
 	locks:        [Int32Array    , totalPixels], //Is this particle locked for processing? 0=no, >0 = logic worker, -1 = main thread, -2 = render worker
@@ -56,37 +56,41 @@ const world = {
 	velocityXs:   [Float32Array  , totalPixels],
 	velocityYs:   [Float32Array  , totalPixels],
 	subpixelXs:   [Float32Array  , totalPixels], //Position comes in through x/y coordinate on screen, but this does not capture subpixel position for slow-moving particles.
-	subpixelXs:   [Float32Array  , totalPixels],
+	subpixelYs:   [Float32Array  , totalPixels],
 	masses:       [Float32Array  , totalPixels],
-	temperatures: [Float32Array  , totalPixels], //Kelvin
+	temperatures: [Float32Array  , totalPixels], //°C
 	scratchA:     [BigUint64Array, totalPixels], //internal state for the particle
 	scratchB:     [BigUint64Array, totalPixels],
 }
 
 //Hydrate our world data structure.
 //First, allocate the memory we need...
+const wasmMemoryStartingByte = 1200000 //Try to allocate somewhere above heap and stack. We can probably reduce this quite a bit if we can find the right config flags.
 const memory = (()=>{
-	const WASM_PAGE_SIZE = 65535 //according to https://developer.mozilla.org/en-US/docs/WebAssembly/JavaScript_interface/Memory/Memory, also, there is no constant to reference.
+	const wasmPageSize = 65535 //according to https://developer.mozilla.org/en-US/docs/WebAssembly/JavaScript_interface/Memory/Memory, also, there is no constant to reference.
 	const numBytesNeeded = Object.values(world).reduce(
 		(accum, [type, entries]) => 
 			+ Math.ceil(accum/type.BYTES_PER_ELEMENT) * type.BYTES_PER_ELEMENT //Align access for 2- and 4-byte types.
 			+ type.BYTES_PER_ELEMENT * entries,
-		0
+		wasmMemoryStartingByte
 	)
 	return new WebAssembly.Memory({
-		initial: Math.ceil(numBytesNeeded/WASM_PAGE_SIZE),
-		maximum: Math.ceil(numBytesNeeded/WASM_PAGE_SIZE),
+		initial: Math.ceil(numBytesNeeded/wasmPageSize),
+		maximum: Math.ceil(numBytesNeeded/wasmPageSize),
 		shared: true,
 	})
 })()
 
 //Then, allocate the data views into the memory.
 //This is shared memory which will get updated by the worker threads, off the main thread.
-Object.entries(world).reduce((totalBytesSoFar, [key, [type, entries]]) => {
-	const startingByteOffset = Math.ceil(totalBytesSoFar/type.BYTES_PER_ELEMENT)*type.BYTES_PER_ELEMENT //Align access for 2- and 4-byte types.
-	world[key] = new type(memory.buffer, totalBytesSoFar, entries)
-	return startingByteOffset + world[key].byteLength
-}, 0)
+Object.entries(world).reduce(
+	(totalBytesSoFar, [key, [type, entries]]) => {
+		const startingByteOffset = Math.ceil(totalBytesSoFar/type.BYTES_PER_ELEMENT)*type.BYTES_PER_ELEMENT //Align access for 2- and 4-byte types.
+		world[key] = new type(memory.buffer, totalBytesSoFar, entries)
+		return startingByteOffset + world[key].byteLength
+	},
+	wasmMemoryStartingByte
+)
 
 Object.freeze(world)
 
@@ -110,12 +114,12 @@ const simulationCores = new Array(availableCores).fill().map((_, coreIndex) => {
 	const worker = new Worker('worker/sim.mjs', {type:'module'})
 	worker.addEventListener('error', err => console.error(`sim ${coreNumber}:`, err))
 	worker.addEventListener('messageerror', err => console.error(`send ${coreNumber}:`, err))
-	worker.addEventListener('message', msg => console.log(`sim ${coreNumber}:`, msg));
+	worker.addEventListener('message', msg => console.log(`sim ${coreNumber}:`, msg))
 	
 	//Marshal the "start" message across multiple postMessages because of the following bugs: [Adu1bZ]
 	//	- Must transfer memory BEFORE world. https://bugs.chromium.org/p/chromium/issues/detail?id=1421524
 	//	- Must transfer world BEFORE memory. https://bugzilla.mozilla.org/show_bug.cgi?id=1821582
-	['start', coreNumber, memory, world]
+	;['start', coreNumber, memory, world]
 		.forEach(arg => worker.postMessage(arg))
 	
 	console.info(`Initialised sim core ${coreNumber}/${availableCores}.`)

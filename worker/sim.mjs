@@ -1,5 +1,7 @@
 const wasmSource = fetch("sim.wasm")
 
+const wasmMemoryStartingByte = 1200000
+
 const assert = (condition, message) => {
 	class AssertionError extends Error { name = "AssertionError" }
 	if (!message) { throw new Error('Missing message for assert.') }
@@ -9,7 +11,7 @@ const assert = (condition, message) => {
 //Extract a utf-8 string from WASM memory, converting it to a utf-16 Javascript String.
 //Very much not zero-copy.
 const stringFromMem = (mem, index) =>
-	index
+	index //usually around 1053656
 		? new TextDecoder('utf-8').decode(
 			//Copy shared memory out to an unshared array for TextDecoder.
 			//Warning: Racy. Time of check for trailing null != time of copy.
@@ -48,10 +50,7 @@ self.start = async (workerID, worldBackingBuffer, world) => {
 				const message  = stringFromMem(worldBackingBuffer, messagePtr )
 				throw new Error(`${message} (${location}:${row}:${column}, thread ${workerID})`)
 			},
-			logNum: arg => console.log(`sim ${workerID}:`, arg),
-			
-			wScratchA: (index, value) => world.scratchA[index] = value,
-			waScratchA: Atomics.store.bind(null, world.scratchA),
+			log_num: num => console.log(`sim ${workerID}: number ${num}`),
 		},
 	})
 	
@@ -59,32 +58,16 @@ self.start = async (workerID, worldBackingBuffer, world) => {
 	
 	let now = () => performance.now();
 	
-	let total = now()
-	const timings = [];
-	for (let i = 0; i < 500; i++) {
-		let jsTime = now()
-		for (let i = 0; i < 10000; i++) {
-			Atomics.store(world.scratchA, i, BigInt(i));
-		}
-		jsTime = now()-jsTime
-		
-		let wasmTime = now()
-		try {
-			sim.runWA()
-		} catch (e) {
-			console.error(`core ${workerID}, iteration ${i}`, e)
-		}
-		wasmTime = now()-wasmTime
-		
-		timings.push([jsTime, wasmTime])
+	let wasmTime = now()
+	try {
+		sim.run(workerID)
+	} catch (e) {
+		console.error(`core ${workerID}`, e)
 	}
 	
-	total = now()-total
-	console.log('js, wasm')
-	//console.table(timings)
-	console.log(`${timings.reduce((a,t)=>a+t[0], 0).toFixed(2)}ms + ${timings.reduce((a,t)=>a+t[1], 0).toFixed(2)}ms = ${total.toFixed(2)}ms`)
+	console.log('wasm time', now()-wasmTime)
 	
-	console.log(world.scratchA.slice(0,5))
+	console.log(worldBackingBuffer.buffer.slice(wasmMemoryStartingByte, wasmMemoryStartingByte+100))
 }
 
 console.info("Sim core listening.")

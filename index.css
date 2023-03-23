@@ -18,8 +18,19 @@ h1 sup {
 	margin-left: -5ex;
 }
 
-canvas.main {
+.canvas-resizer {
 	resize: both;
+	overflow: hidden;
+	width: 800px;
+	height: 600px;
+	min-width: 3in;
+	min-height: 2in;
+	font-size: 0; /*Hide a bit of whitespace in the markup between this and the canvas.*/
+}
+.canvas-resizer > canvas {
+	background: black;
+	width: 100%;
+	height: 100%;
 }
 
 p {

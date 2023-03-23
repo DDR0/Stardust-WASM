@@ -86,7 +86,7 @@ const memory = (()=>{
 Object.entries(world).reduce(
 	(totalBytesSoFar, [key, [type, entries]]) => {
 		const startingByteOffset = Math.ceil(totalBytesSoFar/type.BYTES_PER_ELEMENT)*type.BYTES_PER_ELEMENT //Align access for 2- and 4-byte types.
-		world[key] = new type(memory.buffer, totalBytesSoFar, entries)
+		world[key] = new type(memory.buffer, startingByteOffset, entries)
 		return startingByteOffset + world[key].byteLength
 	},
 	wasmMemoryStartingByte

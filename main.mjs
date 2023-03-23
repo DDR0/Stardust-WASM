@@ -1,4 +1,4 @@
-import {bindWorldToDisplay} from './ui.mjs'
+import {maxScreenRes, bindWorldToDisplay} from './ui.mjs'
 
 const showErrorMessage = message => 
 	document.body.innerHTML = `
@@ -32,7 +32,6 @@ const availableCores =
 		(navigator.hardwareConcurrency || defaultHardwareConcurrency) - reservedCores
 	);
 
-const maxScreenRes = Object.freeze({ x: 3840, y: 2160 }) //4k resolution, probably no sense reserving more memory than that especially given we expect to scale up our pixels.
 const totalPixels = maxScreenRes.x * maxScreenRes.y
 
 //Define simulation memory.
@@ -44,6 +43,7 @@ const world = {
 	globalLock:        [Int32Array,  1], //Global lock for all world data, so we can resize the world. Also acts as a "pause" button. Bool, but atomic operations like i32.
 	globalTick:        [Int32Array,  1], //Current global tick.
 	workersRunning:    [Int32Array,  1], //Used by workers, last one to finish increments tick.
+	totalWorkers:      [Uint32Array, 1],
 	simulationSize:    [Uint32Array, 2], //width/height
 	wrappingBehaviour: [Uint8Array,  4], //top, left, bottom, right: Set to particle type 0 or 1.
 	
@@ -95,7 +95,8 @@ Object.entries(world).reduce(
 Object.freeze(world)
 
 world.wrappingBehaviour.fill(1) //0 is air, 1 is wall. Default to wall.
-world.simulationSize.set([canvas.width, canvas.height])
+world.simulationSize.set([canvas.clientWidth, canvas.clientHeight])
+world.totalWorkers[0] = availableCores
 
 //Enable easy script access for debugging.
 if (localStorage.devMode) {

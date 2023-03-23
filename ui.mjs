@@ -1,3 +1,6 @@
+//4k resolution, probably no sense reserving more memory than that especially given we expect to scale up our pixels.
+export const maxScreenRes = Object.freeze({ x: 3840, y: 2160 })
+
 /// Bind HTML to underlying state.
 export const bindWorldToDisplay = (world, display, draw) => {
 	const $ = display.querySelector.bind(display)
@@ -36,12 +39,12 @@ export const bindWorldToDisplay = (world, display, draw) => {
 		}
 		
 		function updateCanvasSize() {
-			//canvas.width = 3;
-			//canvas.height = 4;
+			//canvas.clientWidth = 3;
+			//canvas.clientHeight = 4;
 			console.log(`canvas resized to ${canvas.width}×${canvas.height} – TODO: copy pixel data here.`)
 			
-			world.bounds.x[0] = canvas.width;
-			world.bounds.y[0] = canvas.height;
+			world.bounds.x[0] = canvas.width  = Math.min(canvas.clientWidth, maxScreenRes.x);
+			world.bounds.y[0] = canvas.height = Math.min(canvas.clientHeight, maxScreenRes.y);
 		}
 	}).observe(mainCanvas)
 	

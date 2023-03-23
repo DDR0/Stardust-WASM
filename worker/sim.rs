@@ -4,6 +4,7 @@
 use core::panic::PanicInfo;
 use core::ptr;
 use core::sync::atomic::{AtomicI32, Ordering};
+use core::cmp;
  
 mod js {
 	#[link(wasm_import_module = "imports")]
@@ -24,26 +25,27 @@ const TOTAL_PIXELS: usize = WORLD_MAX_WIDTH * WORLD_MAX_HEIGHT; //max screen res
 #[repr(C)] //C structs are padded by default, which is taken care of back in JS-land by rounding to the next BYTES_PER_ELEMENT.
 struct World {
 	//Some global configuration.
-	global_lock:       AtomicI32, //Global lock for all world data, so we can resize the world. Also acts as a "pause" button. Bool, but atomic operations like i32.
-	global_tick:       AtomicI32, //Current global tick.
-	workers_running:   AtomicI32, //Used by workers, last one to finish increments tick.
-	simulation_size:    [u32; 2], //width/height
+	global_lock:         AtomicI32, //Global lock for all world data, so we can resize the world. Also acts as a "pause" button. Bool, but atomic operations like i32.
+	global_tick:         AtomicI32, //Current global tick.
+	workers_running:     AtomicI32, //Used by workers, last one to finish increments tick.
+	total_workers:       u32, //constant
+	simulation_size:    [u32; 2], //width/height - protected by global_lock
 	wrapping_behaviour: [u8 ; 4], //top, left, bottom, right: Set to particle type 0 or 1.
 	
 	//Particle attribute arrays.
 	locks:        [AtomicI32; TOTAL_PIXELS], //Is this particle locked for processing? 0=no, >0 = logic worker, -1 = main thread, -2 = render worker. Under the WASM shared memory model, atomic reads/writes use I believe "AcqRel" semantics, that is, acting as an MFENCE for all previous writes. We use this to lock all particles we're processing, muck around with faster reads/writes, then release and have everything synced. Both reading and writing will take a lock, so uncached writes *should* never be observed by another worker.
-	types:        [u8      ; TOTAL_PIXELS],
-	ticks:        [u8      ; TOTAL_PIXELS], //Used for is_new_tick. Stores whether last tick processed was even or odd. If this doesn't match the current tick, we know to advance the particle simulation one step.
-	stages:       [u8      ; TOTAL_PIXELS], //Particle processing step. Usually 0 = hasn't moved yet, 1 = can't move, >2 = done.
-	colours:      [u32     ; TOTAL_PIXELS], //This is copied directly to canvas.
-	velocity_xs:  [f32     ; TOTAL_PIXELS],
-	velocity_ys:  [f32     ; TOTAL_PIXELS],
-	subpixel_xs:  [f32     ; TOTAL_PIXELS], //Position comes in through x/y coordinate on screen, but this does not capture subpixel position for slow-moving particles.
-	subpixel_ys:  [f32     ; TOTAL_PIXELS],
-	masses:       [f32     ; TOTAL_PIXELS],
-	temperatures: [f32     ; TOTAL_PIXELS], //°C
-	scratch_a:    [u64     ; TOTAL_PIXELS], //internal state for the particle
-	scratch_b:    [u64     ; TOTAL_PIXELS],
+	types:        [u8       ; TOTAL_PIXELS],
+	ticks:        [u8       ; TOTAL_PIXELS], //Used for is_new_tick. Stores whether last tick processed was even or odd. If this doesn't match the current tick, we know to advance the particle simulation one step.
+	stages:       [u8       ; TOTAL_PIXELS], //Particle processing step. Usually 0 = hasn't moved yet, 1 = can't move, >2 = done.
+	colours:      [u32      ; TOTAL_PIXELS], //This is copied directly to canvas.
+	velocity_xs:  [f32      ; TOTAL_PIXELS],
+	velocity_ys:  [f32      ; TOTAL_PIXELS],
+	subpixel_xs:  [f32      ; TOTAL_PIXELS], //Position comes in through x/y coordinate on screen, but this does not capture subpixel position for slow-moving particles.
+	subpixel_ys:  [f32      ; TOTAL_PIXELS],
+	masses:       [f32      ; TOTAL_PIXELS],
+	temperatures: [f32      ; TOTAL_PIXELS], //°C
+	scratch_a:    [u64      ; TOTAL_PIXELS], //internal state for the particle
+	scratch_b:    [u64      ; TOTAL_PIXELS],
 }
 
 #[inline]
@@ -59,9 +61,22 @@ fn get_world() -> &'static mut World {
 
 #[no_mangle]
 pub unsafe extern fn run(worker_id: i32) {
-	let mut world = get_world();
+	debug_assert!(worker_id >= 1, "Bad worker_id passed in, too small.");
+	let world = get_world();
 	//_log_num(world as *const World as usize);
-	for n in 0..(1600*1200) {
+	
+	let total_pixels = world.simulation_size[0] * world.simulation_size[1];
+	
+	let mut chunk_size = total_pixels / world.total_workers;
+	if chunk_size * world.total_workers < total_pixels {
+		chunk_size += 1
+	}
+	let chunk_size = chunk_size;
+	
+	let chunk_start = chunk_size*(worker_id as u32 - 1);
+	let chunk_end = cmp::min(chunk_start + chunk_size, total_pixels); //Total pixels may not divide evenly into number of worker cores.
+	
+	for n in chunk_start as usize .. chunk_end as usize {
 		if let Ok(_) = world.locks[n].compare_exchange(
 			NULL_ID, 
 			worker_id, 

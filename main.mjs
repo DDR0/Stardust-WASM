@@ -25,12 +25,13 @@ const canvas = $("#stardust-game canvas.main")
 const defaultHardwareConcurrency = 4;
 const reservedCores = 2; //One for main thread, one for the render thread; the rest are used for processing. This means at minimum we run with 3 threads, even if we're on a single-core CPU.
 //Note: Safari doesn't support hardwareConcurrency as of 2022-06-09.
-const availableCores = 
+const availableCores = Math.min(256, //max number of cores we support - I recognise this is very ambitious, it should probably be lowered to reduce memory contention on the high end once if we can find a suitable test rig.
 	(+localStorage.coreOverride)
 	|| Math.max(//Available cores for _processing,_ at least 1.
 		1, 
 		(navigator.hardwareConcurrency || defaultHardwareConcurrency) - reservedCores
-	);
+	)
+);
 
 const totalPixels = maxScreenRes.x * maxScreenRes.y
 
@@ -42,7 +43,7 @@ const world = {
 	//Some global configuration.
 	globalLock:        [Int32Array,  1], //Global lock for all world data, so we can resize the world. Also acts as a "pause" button. Bool, but atomic operations like i32.
 	globalTick:        [Int32Array,  1], //Current global tick.
-	workersRunning:    [Int32Array,  1], //Used by workers, last one to finish increments tick.
+	workerStatuses:    [Int32Array,  256], //Used by workers, last one to finish increments tick. i32 because that's what Atomics.waitAsync and friends takes, along with i64 which we don't need.
 	totalWorkers:      [Uint32Array, 1],
 	simulationSize:    [Uint32Array, 2], //width/height
 	wrappingBehaviour: [Uint8Array,  4], //top, left, bottom, right: Set to particle type 0 or 1.
@@ -105,6 +106,51 @@ if (localStorage.devMode) {
 }
 
 
+//Returns an awaitable delay of ⪆10ms.
+const timeout = ms => new Promise(resolve => setTimeout(resolve, ms))
+const frame = () => new Promise(resolve => requestAnimationFrame(resolve))
+
+//Lock the world to run a function. Waits for all workers to finish.
+//cb: Callback. Can be async.
+//fail: Set to `false` to invoke callback if a lock cannot be obtained.
+//iter: Number of times to try to acquire the lock over the duration. Defaults to 100. Currently uses the stack for this, so don't put too high a number.
+//timeToWait: Duration over which to try to acquire the lock. Defaults to 1000.
+//So, with iter=100 and timeToWait=1000, it'll try every 10ms to acquire the
+//lock. This should be ~fine for gui-based interactions.
+async function lockWorldTo(cb, fail=true, iter=100, timeToWait=1000) {
+	if(0 === Atomics.compareExchange(world.globalLock, 0, 0, 1)) {
+		await cb() //Safely, lock obtained.
+		Atomics.store(world.globalLock, 0, 0)
+		Atomics.notify(world.globalLock, 0)
+	}
+	else if (iter <= 0) {
+		console.warn(`Failed to acquire world lock.`)
+		fail || await cb(); //yolo
+	}
+	else if (Atomics.waitAsync) { //Firefox doesn't support asyncWait as of 2022-06-12.
+		//console.info(`Failed to acquire world lock ×${iter}.`)
+		await Atomics.waitAsync(world.globalLock, 0, 0, timeToWait/lockAttempts)
+		await Promise.all(new Array(availableCores).fill().map((_, coreIndex) =>
+			Atomics.waitAsync(
+				world.workerStatuses, 
+				coreIndex, 
+				0, 
+				timeToWait - (iter*(timeToWait/lockAttempts))
+			)
+		))
+		await lockWorldTo(cb, timeToWait, iter-1, fail)
+	} else {
+		//console.info(`Failed to acquire world lock ×${iter}.`)
+		await lockWorldTo(cb, timeToWait, iter-1, fail)
+		await timeout(20) //Wait for a little bit for the simulation cores to stop.
+		//TODO: Write our own version of `Atomics.waitAsync` here. Basically,
+		//using a combination of `Atomics.load(…)` with `setTimeout(…)` and
+		//`new Promise(…)` ought to work - check every little while and resolve
+		//the promise if the value is good.
+	}
+}
+
+
 
 ///////////////////////
 //  Set up workers.  //
@@ -113,8 +159,8 @@ if (localStorage.devMode) {
 const simulationCores = new Array(availableCores).fill().map((_, coreIndex) => {
 	const coreNumber = coreIndex+1 //Sim worker IDs start at 1. Check the definition of world.locks for more details.
 	const worker = new Worker('worker/sim.mjs', {type:'module'})
-	worker.addEventListener('error', err => console.error(`sim ${coreNumber}:`, err))
-	worker.addEventListener('messageerror', err => console.error(`send ${coreNumber}:`, err))
+	//worker.addEventListener('error', err => console.error(`sim ${coreNumber}:`, err))
+	//worker.addEventListener('messageerror', err => console.error(`send ${coreNumber}:`, err))
 	worker.addEventListener('message', msg => console.log(`sim ${coreNumber}:`, msg))
 	
 	//Marshal the "start" message across multiple postMessages because of the following bugs: [Adu1bZ]
@@ -150,51 +196,34 @@ console.info(`Main thread ready.`)
 //})()
 
 
-/*
-const renderCore = await pendingRenderCore
-renderCore.postMessage({type:'hello', data:[]})
-renderCore.postMessage({type:'bindToData', data:[world]})
 
-//Rendering works by passing around a typed array buffer, so that we can render
-//the particles in a worker and then efficiently draw the resulting image in the
-//main thread.
-
-drawFrame.context = canvas.getContext('2d')
-function drawFrame(buffer, width, height) {
-	//If we save the ImageData after transferring the backing array buffer out, transferring the buffer back to this thread doesn't "put it back" into the ImageData's buffer. And since we can't assign it to buffer, we have to recreate the object. Seems fairly light-weight, at least, since we can create the new object with the old buffer.
-	//Anyway, first step, we draw the image data. This way, we don't drop frames when we're resizing, even if we do lag a bit.
-	drawFrame.context.putImageData(new ImageData(new Uint8ClampedArray(buffer), width, height), 0, 0);
-	
-	//Regenereate the buffer here if our canvas has changed size. We could use a ResizeObserver, but we'd have to check here anyway since we never *store* the buffer in a permanent variable - it only ever lives in function args, since ownership is passed around between the main and render threads.
-	if (canvas.width != width || canvas.height != height) {
-		({width, height} = canvas)
-		buffer = new ArrayBuffer(4*width*height)
-	}
-	
-	//I'm not sure about the placement of this RAF - should we kick off rendering at the end of the current frame and draw it immediately on the next, as opposed to kicking off the render and hoping it returns before the next frame? I think we could also put it in the web-worker, but that wouldn't really help us here.
-	requestAnimationFrame(() => {
-		renderCore.postMessage(
-			{ type: 'renderInto', data: [buffer, width, height] },
-			[ buffer ],
+{
+//Draw the particle colours in the world to the canvas.
+	const context = canvas.getContext('2d')
+	const drawFrame = () => {
+		const [width, height] = world.simulationSize
+		
+		context.putImageData(
+			new ImageData(
+				new Uint8ClampedArray(
+					world.colours.slice(0, 4 * width * height)
+				),
+				width, height
+			),
+			0, 0
 		)
 		
-		if (buffer.byteLength && !drawFrame.hasThrownTransferError) {
-			drawFrame.hasThrownTransferError = true
-			console.error('Failed to transfer image data, falling back to expensive copy operation.')
-		}
-	})
+		//I'm not sure about the placement of this RAF - should we kick off rendering at the end of the current frame and draw it immediately on the next, as opposed to kicking off the render and hoping it returns before the next frame? I think we could also put it in the web-worker, but that wouldn't really help us here.
+		requestAnimationFrame(drawFrame)
+	}
+	requestAnimationFrame(drawFrame)
 }
 
-drawFrame(new ArrayBuffer(4), 1, 1) //Kick off the render loop.
-
-console.info(`Loaded render core.`)
-
-bindWorldToDisplay(world, $("#stardust-game"), {
-	dot:  (...args) => renderCore.postMessage({type:'drawDot',  data:args}),
-	line: (...args) => renderCore.postMessage({type:'drawLine', data:args}),
-	rect: (...args) => renderCore.postMessage({type:'drawRect', data:args}),
-	fill: (...args) => renderCore.postMessage({type:'drawFill', data:args}),
+bindWorldToDisplay(world, lockWorldTo, $("#stardust-game"), {
+	pick: (x,y) => {},
+	dot:  (x,y, radius, type) => {},
+	line: (x1, y1, x2, y2, radius, type) => {},
+	rect: (x1, y1, x2, y2, radius, type) => {},
 })
 
 console.info('Bound UI elements.')
-*/

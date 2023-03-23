@@ -9,8 +9,9 @@ use core::cmp;
 mod js {
 	#[link(wasm_import_module = "imports")]
 	extern "C" {
-		pub fn _log_num(number: usize);
 		pub fn abort(msgPtr: usize, filePtr: usize, line: u32, column: u32) -> !;
+		pub fn _log_num(number: usize);
+		pub fn wait_for(addr: u32, toHaveVal: i32);
 	}
 }
 
@@ -27,7 +28,7 @@ struct World {
 	//Some global configuration.
 	global_lock:         AtomicI32, //Global lock for all world data, so we can resize the world. Also acts as a "pause" button. Bool, but atomic operations like i32.
 	global_tick:         AtomicI32, //Current global tick.
-	workers_running:     AtomicI32, //Used by workers, last one to finish increments tick.
+	worker_statuses:    [AtomicI32; 256], //Used by workers, last one to finish increments tick.
 	total_workers:       u32, //constant
 	simulation_size:    [u32; 2], //width/height - protected by global_lock
 	wrapping_behaviour: [u8 ; 4], //top, left, bottom, right: Set to particle type 0 or 1.
@@ -63,7 +64,11 @@ fn get_world() -> &'static mut World {
 pub unsafe extern fn run(worker_id: i32) {
 	debug_assert!(worker_id >= 1, "Bad worker_id passed in, too small.");
 	let world = get_world();
-	//_log_num(world as *const World as usize);
+	_log_num(world as *const World as usize);
+	_log_num(&world.global_lock as *const AtomicI32 as usize);
+	wait_for((&world.global_lock as *const AtomicI32 as usize).try_into().unwrap(), 0); //WASM is at the moment guaranteed to only have u32 pointers, so this unwrap should always succeed as per the spec.
+	
+	world.worker_statuses[worker_id as usize].store(1, Ordering::Release);
 	
 	let total_pixels = world.simulation_size[0] * world.simulation_size[1];
 	
@@ -87,6 +92,8 @@ pub unsafe extern fn run(worker_id: i32) {
 			world.locks[n].store(NULL_ID, Ordering::SeqCst);
 		}
 	}
+	
+	world.worker_statuses[worker_id as usize].store(0, Ordering::Release);
 }
 
 #[panic_handler]

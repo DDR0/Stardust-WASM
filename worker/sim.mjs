@@ -39,6 +39,7 @@ self.start = async (workerID, worldBackingBuffer, world) => {
 	self.worldBackingBuffer = worldBackingBuffer
 	self.world = world
 	
+	const i32View = new Int32Array(worldBackingBuffer.buffer)
 	
 	const wasm = await WebAssembly.instantiateStreaming(wasmSource, {
 		env: {
@@ -50,7 +51,16 @@ self.start = async (workerID, worldBackingBuffer, world) => {
 				const message  = stringFromMem(worldBackingBuffer, messagePtr )
 				throw new Error(`${message} (${location}:${row}:${column}, thread ${workerID})`)
 			},
-			log_num: num => console.log(`sim ${workerID}: number ${num}`),
+			_log_num: num => console.log(`sim ${workerID}: number ${num}`),
+			
+			//Opposite of wait - waits for a value to be equal, vs not-equal.
+			wait_for: (ptr, value) => {
+				while (true) {
+					const stored = Atomics.load(i32View, ptr / i32View.BYTES_PER_ELEMENT)
+					if (stored == value) return
+					Atomics.wait(i32View, ptr / i32View.BYTES_PER_ELEMENT, stored)
+				}
+			}
 		},
 	})
 	

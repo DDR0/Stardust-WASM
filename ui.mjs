@@ -1,51 +1,43 @@
+//Bind the UI to the world.
+//The purpose of this module is to hide away as much of the complexity of the
+//HTML binding work as possible. In turn, it tries to stay away from the
+//complexity of mucking about in the world memory as it can.
+
 //4k resolution, probably no sense reserving more memory than that especially given we expect to scale up our pixels.
 export const maxScreenRes = Object.freeze({ x: 3840, y: 2160 })
 
+//Mutable state.
+let selectedTypeId = 0
+let selectedTool = ""
+let toolRadius = 10 //particles
+
+//Needed for colour picker logic.
+export const setSelectedTool = id => {
+	selectedTypeId = id
+	console.log('todo: update tool selection')
+}
+
 /// Bind HTML to underlying state.
-export const bindWorldToDisplay = (world, display, draw) => {
+export const bindWorldToDisplay = (world, lockWorldTo, display, tools) => {
 	const $ = display.querySelector.bind(display)
 	const $$ = display.querySelectorAll.bind(display)
+	
 	const mainCanvas = $('canvas.main')
 	
-	let selectedTypeId = +$('.toolbox [name=type_id]:checked').value
-	let selectedTool = $('.toolbox [name=tool]:checked').value
-	let toolRadius = 10 //particles
-	
+	selectedTypeId = +$('.toolbox [name=type_id]:checked').value
+	selectedTool = $('.toolbox [name=tool]:checked').value
 	
 	// Canvas resizing.
 	new ResizeObserver(([{target: canvas}]) => {
-		const lockAttempts = 200;
-		const timeToWait = 2000; //ms, total
-		
-		//Firefox doesn't support asyncWait as of 2022-06-12.
-		Atomics.waitAsync ? acquireWorldLock() : updateCanvasSize()
-		
-		async function acquireWorldLock(iter=1) {
-			//I think this suffers from lock contention, there's no guarantee it'll ever really be free. We should probably just copy it over from a cache every frame.
-			if(0 === Atomics.compareExchange(world.lock, 0, 0, 1)) {
-				updateCanvasSize() //Safely, lock obtained.
-				Atomics.store(world.lock, 0, 0)
-				Atomics.notify(world.lock, 0)
-			}
-			else if (iter > lockAttempts) {
-				updateCanvasSize(); //Yolo, couldn't get lock.
-				console.error(`Failed to acquire world lock.`)
-			}
-			else {
-				await Atomics.waitAsync(world.lock, 0, 0, timeToWait/lockAttempts)
-				acquireWorldLock(iter + 1)
-				console.info(`Failed to acquire world lock ×${iter}.`)
-			}
-		}
-		
-		function updateCanvasSize() {
+		//There may be multiple in flight at once. We will want to only update when resizing stops, I think, or every few frames?
+		lockWorldTo(()=>{
 			//canvas.clientWidth = 3;
 			//canvas.clientHeight = 4;
-			console.log(`canvas resized to ${canvas.width}×${canvas.height} – TODO: copy pixel data here.`)
+			console.log(`canvas resized to ${canvas.clientWidth}×${canvas.clientHeight} – TODO: copy pixel data here.`)
 			
-			world.bounds.x[0] = canvas.width  = Math.min(canvas.clientWidth, maxScreenRes.x);
-			world.bounds.y[0] = canvas.height = Math.min(canvas.clientHeight, maxScreenRes.y);
-		}
+			world.simulationSize[0] = canvas.width  = Math.min(canvas.clientWidth, maxScreenRes.x);
+			world.simulationSize[1] = canvas.height = Math.min(canvas.clientHeight, maxScreenRes.y);
+		})
 	}).observe(mainCanvas)
 	
 	
@@ -71,9 +63,32 @@ export const bindWorldToDisplay = (world, display, draw) => {
 	}
 	updateCursor()
 	
+	//Wrap raw events, passing the most useful information to tools.
 	{
-		const mouseHandler = evt => {
-			if (!evt.buttons) { return };
+		let startEvt //store starting event of drag
+		
+		const startToolAction = evt => {
+			startEvt = evt
+			
+			const clientRect = evt.target.getClientRects()[0]
+			const x1 = Math.round(evt.x - clientRect.x) 
+			const y1 = Math.round(evt.y - clientRect.y)
+			
+			switch (selectedTool) {
+				case "picker":
+					tools.pick(x1, y2)
+					break
+				case "pencil":
+					tools.dot(x1, y1, toolRadius, selectedTypeId)
+					break
+				case "eraser":
+					tools.dot(x1, y1, toolRadius, 0)
+					break
+			}
+		}
+		
+		const continuedToolAction = evt => {
+			if (!evt.buttons) { return }
 			
 			const clientRect = evt.target.getClientRects()[0]
 			const x1 = Math.round(evt.x - clientRect.x) 
@@ -83,18 +98,33 @@ export const bindWorldToDisplay = (world, display, draw) => {
 			
 			switch (selectedTool) {
 				case "picker":
-					return console.error('unimplimented')
+					tools.pick(x1, y2)
+					break
 				case "pencil":
-					//TODO: Use line here.
-					return draw.dot(x1, y1, toolRadius, selectedTypeId)
+					tools.line(x1, y1, x2, y2, toolRadius, selectedTypeId)
+					break
 				case "eraser":
-					//TODO: Use line here.
-					return draw.dot(x1, y1, toolRadius, 0)
-				default:
-					return console.error(`Unknown tool ${selectedTool}`)
+					tools.line(x1, y1, x2, y2, toolRadius, 0)
+					break
 			}
 		}
-		mainCanvas.addEventListener('mousedown', mouseHandler)
-		mainCanvas.addEventListener('mousemove', mouseHandler)
+		
+		const endToolAction = evt => {
+			const clientRect = evt.target.getClientRects()[0]
+			const x1 = Math.round(evt.x - clientRect.x) 
+			const y1 = Math.round(evt.y - clientRect.y)
+			const x2 = Math.round(startEvt.x - clientRect.x)
+			const y2 = Math.round(startEvt.y - clientRect.y)
+			
+			switch (selectedTool) {
+				case "rect":
+					tools.rect(x1, y1, x2, y2)
+					break
+			}
+		}
+		
+		mainCanvas.addEventListener('mousedown', startToolAction)
+		mainCanvas.addEventListener('mousemove', continuedToolAction)
+		mainCanvas.addEventListener('mouseup', endToolAction)
 	}
 }

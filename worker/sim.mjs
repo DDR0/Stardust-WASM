@@ -77,6 +77,7 @@ self.start = async (workerID, worldBackingBuffer, world) => {
 	
 	console.log(`wasm time: ${(now()-wasmTime).toFixed(2)}ms`)
 	
+	//No-op in Firefox. See https://bugzilla.mozilla.org/show_bug.cgi?id=1613424, "Cannot log SharedArrayBuffer objects from a worker".
 	console.log(worldBackingBuffer.buffer.slice(wasmMemoryStartingByte, wasmMemoryStartingByte+100))
 }
 

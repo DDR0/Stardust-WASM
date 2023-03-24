@@ -3,8 +3,7 @@
 //HTML binding work as possible. In turn, it tries to stay away from the
 //complexity of mucking about in the world memory as it can.
 
-//4k resolution, probably no sense reserving more memory than that especially given we expect to scale up our pixels.
-export const maxScreenRes = Object.freeze({ x: 3840, y: 2160 })
+import { world, maxWorldSize } from './world.mjs'
 
 //Mutable state.
 let selectedTypeId = 0
@@ -18,7 +17,7 @@ export const setSelectedTool = id => {
 }
 
 /// Bind HTML to underlying state.
-export const bindWorldToDisplay = (world, lockWorldTo, display, tools) => {
+export const bindDisplayTo = (display, tools) => {
 	const $ = display.querySelector.bind(display)
 	const $$ = display.querySelectorAll.bind(display)
 	
@@ -30,14 +29,14 @@ export const bindWorldToDisplay = (world, lockWorldTo, display, tools) => {
 	// Canvas resizing.
 	new ResizeObserver(([{target: canvas}]) => {
 		//There may be multiple in flight at once. We will want to only update when resizing stops, I think, or every few frames?
-		lockWorldTo(()=>{
+		//lockWorldTo(()=>{
 			//canvas.clientWidth = 3;
 			//canvas.clientHeight = 4;
 			console.log(`canvas resized to ${canvas.clientWidth}×${canvas.clientHeight} – TODO: copy pixel data here.`)
 			
-			world.simulationSize[0] = canvas.width  = Math.min(canvas.clientWidth, maxScreenRes.x);
-			world.simulationSize[1] = canvas.height = Math.min(canvas.clientHeight, maxScreenRes.y);
-		})
+			world.simulationSize[0] = canvas.width  = Math.min(canvas.clientWidth, maxWorldSize.x);
+			world.simulationSize[1] = canvas.height = Math.min(canvas.clientHeight, maxWorldSize.y);
+		//})
 	}).observe(mainCanvas)
 	
 	

@@ -35,6 +35,7 @@ self.start = async (workerID, worldBackingBuffer, world) => {
 	console.info(`Sim core ${workerID} started.`)
 	assert(workerID > 0, "Worker ID must be positive.")
 	
+	//Expose a few values for debugging.
 	self.workerID = workerID
 	self.worldBackingBuffer = worldBackingBuffer
 	self.world = world
@@ -54,7 +55,7 @@ self.start = async (workerID, worldBackingBuffer, world) => {
 			_log_num: num => console.log(`sim ${workerID}: number ${num}`),
 			
 			//Opposite of wait - waits for a value to be equal, vs not-equal.
-			wait_for: (ptr, value) => {
+			_wait_for: (ptr, value) => {
 				while (true) {
 					const stored = Atomics.load(i32View, ptr / i32View.BYTES_PER_ELEMENT)
 					if (stored == value) return
@@ -66,19 +67,42 @@ self.start = async (workerID, worldBackingBuffer, world) => {
 	
 	const sim = wasm.instance.exports
 	
-	let now = () => performance.now();
+	let now = () => performance.now()
 	
-	let wasmTime = now()
-	try {
-		sim.run(workerID)
-	} catch (e) {
-		console.error(`core ${workerID}`, e)
+	let lastProcessedTick = -1
+	while (1) {
+		Atomics.wait(world.globalTick, 0, lastProcessedTick)
+		lastProcessedTick = world.globalTick[0]
+		
+		let wasmTime = now()
+		try {
+			sim.run(workerID)
+		} catch (e) {
+			console.error(`core ${workerID}`, e)
+			recoverCrashedWorker(world, workerID)
+		}
+		
+		console.log(`wasm time: ${(now()-wasmTime).toFixed(2)}ms`)
 	}
-	
-	console.log(`wasm time: ${(now()-wasmTime).toFixed(2)}ms`)
 	
 	//No-op in Firefox. See https://bugzilla.mozilla.org/show_bug.cgi?id=1613424, "Cannot log SharedArrayBuffer objects from a worker".
 	console.log(worldBackingBuffer.buffer.slice(wasmMemoryStartingByte, wasmMemoryStartingByte+100))
 }
 
 console.info("Sim core listening.")
+
+const recoverCrashedWorker = (world, workerID) => {
+	const workerIndex = workerID - 1
+	Atomics.store(world.workerStatuses, workerIndex, 3) //mark crashed
+	
+	const totalPixels = world.simulationWindow[2] - world.simulationWindow[0] * world.simulationWindow[3] - world.simulationWindow[0]
+	
+	let chunkSize = Math.ceil(totalPixels / world.totalWorkers);
+	
+	for (let y = world.simulationWindow[0]; y < world.simulationWindow[2]; y++)
+		for (let x = world.simulationWindow[1]; x < world.simulationWindow[3]; x++)
+			if (world.locks[y*3840 + x] === workerID) //maxWorldSize.x
+				world.locks[y*3840 + x] = 0 //Mark particle unlocked, as we crashed while processing it. Consistency is not guaranteed after this point!
+	
+	Atomics.store(world.workerStatuses, workerIndex, 0) //mark ready
+}

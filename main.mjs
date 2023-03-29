@@ -24,7 +24,7 @@ if (!Atomics.waitAsync) { //Firefox doesn't support asyncWait as of 2023-01-28.
 
 //Actual start of logic.
 import {bindDisplayTo} from './ui.mjs'
-import {world, memory, maxWorldSize} from './world.mjs'
+import {world, memory, maxWorldSize, workersAreRunning} from './world.mjs'
 
 const $ = document.querySelector.bind(document);
 const $$ = document.querySelectorAll.bind(document);
@@ -71,19 +71,36 @@ const simulationCores = new Array(availableCores).fill().map((_, coreIndex) => {
 })
 
 
-let paused = false
-////Poke shared memory worker threads are waiting on, once per frame.
-//[80rxVM] Potential race condition: workers may be settled, but awaiting a wakeup which has been issued but not received yet. To solve this, when unsettling workers, write 1 to their statuses and then have them write 2 when they're running or something. It's probably enough just to do the first one non-atomically before issueing the go order but after checking for paused-ness.
-//(function advanceTick() {
-//	if (!Atomics.load(world.workersRunning, 0)) { 
-//		Atomics.add(world.tick, 0, 1)
-//		Atomics.notify(world.tick, 0)
-//		//console.log('incremented frame')
-//	} else {
-//		//console.log('missed frame')
-//	}
-//	requestAnimationFrame(advanceTick)
-//})()
+const simulate = (()=>{
+	let ticker = 0
+	const loop = ()=>{
+		simulate.tick()
+		ticker = requestAnimationFrame(loop)
+	}
+	
+	return Object.freeze({
+		tick: () => {
+			if (workersAreRunning()) {
+				console.info('dropped frame')
+				return 0
+			} else {
+				//console.info('incremented frame')
+				world.workerStatuses.fill(1, 0, world.totalWorkers[0])
+				Atomics.add(world.globalTick, 0, 1)
+				Atomics.notify(world.globalTick, 0)
+				return world.globalTick[0]
+			}
+		},
+		
+		pause: () => ticker &= cancelAnimationFrame(ticker), //pause twice is fine,
+		play: () => ticker ||= requestAnimationFrame(loop),  //but don't start twice
+	})
+})()
+simulate.tick()
+
+if (localStorage.devMode) {
+	window.simulate = simulate
+}
 
 
 
@@ -91,9 +108,7 @@ let paused = false
 	//Flip the colours of the particles to the canvas.
 	const context = canvas.getContext('2d')
 	let buffer = new Uint8ClampedArray(0)
-	const drawFrame = () => {
-		//For each line of the simulation, copy the colours to a contiguous rect to draw to canvas.
-		//Visually: data:image/gif;base64,R0lGODdhJQARAIABAAAAAP///ywAAAAAJQARAAACTIyPqcsGD6N8rQZgEc5rc89px6SA2gQ54cWYo+pIpaiSm9uYdwtfcoKx+SKs4gfYQxozIE9QtgvhlrRpp4WiUCtWS1e5GmWz4bI5UQAAOw==
+	requestAnimationFrame(function drawFrame() {
 		const [x1, y1, x2, y2] = world.simulationWindow
 		const {y: worldWidth} = maxWorldSize
 		
@@ -107,6 +122,8 @@ let paused = false
 			buffer = new Uint8ClampedArray(requiredBufferByteLength)
 		}
 		
+		//For each line of the simulation, copy the colours to a contiguous rect to draw to canvas.
+		//Visually: data:image/gif;base64,R0lGODdhJQARAIABAAAAAP///ywAAAAAJQARAAACTIyPqcsGD6N8rQZgEc5rc89px6SA2gQ54cWYo+pIpaiSm9uYdwtfcoKx+SKs4gfYQxozIE9QtgvhlrRpp4WiUCtWS1e5GmWz4bI5UQAAOw==
 		for (let y = 0; y < outputHeight; y++) {
 			const worldLineStart = (y1+y) * worldWidth + x1
 			buffer.set(
@@ -120,8 +137,7 @@ let paused = false
 		
 		//I'm not sure about the placement of this RAF - should we kick off rendering at the end of the current frame and draw it immediately on the next, as opposed to kicking off the render and hoping it returns before the next frame? I think we could also put it in the web-worker, but that wouldn't really help us here. The advantage to the current way is that if an error is encountered, then we stop rendering so we can debug the error.
 		requestAnimationFrame(drawFrame)
-	}
-	requestAnimationFrame(drawFrame)
+	})
 }
 
 bindDisplayTo($("#stardust-game"), {

@@ -11,6 +11,7 @@ const wasmMemoryStartingByte = 1200000 //Try to allocate somewhere above heap an
 ///////////////////////////////////////
 
 //Could use a double-buffer system, but we would have to copy everything from one buffer to the other each frame. Benefit: no tearing. (ed. note: This is taken care of by locking now?)
+//Make sure this data structure is synced with Rust! [1CLsom]
 export const world = {
 	__proto__: null,
 	
@@ -98,7 +99,7 @@ const frame = () => new Promise(resolve => requestAnimationFrame(resolve))
 //Note: Wait. We might not need to pause the sim if we don't use a linear chunk of memory, because resizing it shouldn't lead to corruption then.
 export async function lockWorldTo(cb) {
 	simulationPauseRequests++
-	await workersSettled() //[80rxVM] Potential race condition: workers may be settled, but awaiting a wakeup which has been issued but not received yet. To solve this, when unsettling workers, write 1 to their statuses and then have them write 2 when they're running or something. It's probably enough just to do the first one non-atomically before issueing the go order but after checking for paused-ness.
+	await workersSettled()
 	await cb()
 	simulationPauseRequests--
 }
@@ -117,6 +118,17 @@ export const workersSettled = Atomics.waitAsync
 		throw new Error('TODO')
 	}
 */
+
+
+export const workersAreRunning = () => {
+	for (let i = 0; i < world.totalWorkers[0]; i++) {
+		if (Atomics.load(world.workerStatuses, i)) {
+			return true
+		}
+	}
+	return false
+}
+
 
 
 function assertInRange(a, b, c) {

@@ -26,11 +26,11 @@ const TOTAL_PIXELS: usize = WORLD_MAX_WIDTH * WORLD_MAX_HEIGHT; //max screen res
 #[repr(C)] //C structs are padded by default, which is taken care of back in JS-land by rounding to the next BYTES_PER_ELEMENT.
 struct World {
 	//Some global configuration.
-	global_lock:         AtomicI32, //Global lock for all world data, so we can resize the world. Also acts as a "pause" button. Bool, but atomic operations like i32.
-	global_tick:         AtomicI32, //Current global tick.
-	worker_statuses:    [AtomicI32; 256], //Used by workers, last one to finish increments tick.
-	total_workers:       u32, //constant
-	simulation_size:    [u32; 2], //width/height - protected by global_lock
+	global_lock: AtomicI32, //Global lock for all world data, so we can resize the world. Also acts as a "pause" button. Bool, but atomic operations like i32.
+	global_tick: AtomicI32, //Current global tick.
+	worker_statuses: [AtomicI32; 248], //Used by workers, last one to finish increments tick.
+	total_workers: u32, //constant
+	simulation_window: [u32; 4], //x/y/width/height - protected by global_lock
 	wrapping_behaviour: [u8 ; 4], //top, left, bottom, right: Set to particle type 0 or 1.
 	
 	//Particle attribute arrays.
@@ -70,7 +70,7 @@ pub unsafe extern fn run(worker_id: i32) {
 	
 	world.worker_statuses[worker_id as usize].store(1, Ordering::Release);
 	
-	let total_pixels = world.simulation_size[0] * world.simulation_size[1];
+	let total_pixels = world.simulation_window[2] - world.simulation_window[0] * world.simulation_window[3] - world.simulation_window[0];
 	
 	let mut chunk_size = total_pixels / world.total_workers;
 	if chunk_size * world.total_workers < total_pixels {

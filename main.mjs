@@ -24,7 +24,7 @@ if (!Atomics.waitAsync) { //Firefox doesn't support asyncWait as of 2023-01-28.
 
 //Actual start of logic.
 import {bindDisplayTo} from './ui.mjs'
-import {world, memory} from './world.mjs'
+import {world, memory, maxWorldSize} from './world.mjs'
 
 const $ = document.querySelector.bind(document);
 const $$ = document.querySelectorAll.bind(document);
@@ -43,7 +43,7 @@ const availableCores = Math.min(256, //max number of cores we support - I recogn
 );
 
 world.wrappingBehaviour.fill(1) //0 is air, 1 is wall, etc. Default to wall.
-world.simulationSize.set([canvas.clientWidth, canvas.clientHeight])
+//world.simulationWindow.set([0, 0, canvas.clientWidth, canvas.clientHeight])
 world.totalWorkers[0] = availableCores
 
 
@@ -90,11 +90,35 @@ let paused = false
 {
 	//Flip the colours of the particles to the canvas.
 	const context = canvas.getContext('2d')
+	let buffer = new Uint8ClampedArray(0)
 	const drawFrame = () => {
-		const [width, height] = world.simulationSize
-		context.putImageData(new ImageData(new Uint8ClampedArray(world.colours.slice(0, 4 * width * height)), width, height), 0, 0)
+		//For each line of the simulation, copy the colours to a contiguous rect to draw to canvas.
+		//Visually: data:image/gif;base64,R0lGODdhJQARAIABAAAAAP///ywAAAAAJQARAAACTIyPqcsGD6N8rQZgEc5rc89px6SA2gQ54cWYo+pIpaiSm9uYdwtfcoKx+SKs4gfYQxozIE9QtgvhlrRpp4WiUCtWS1e5GmWz4bI5UQAAOw==
+		const [x1, y1, x2, y2] = world.simulationWindow
+		const {y: worldWidth} = maxWorldSize
 		
-		//I'm not sure about the placement of this RAF - should we kick off rendering at the end of the current frame and draw it immediately on the next, as opposed to kicking off the render and hoping it returns before the next frame? I think we could also put it in the web-worker, but that wouldn't really help us here.
+		const outputWidth  = x2-x1 || 1,
+		      outputHeight = y2-y1 || 1
+		
+		//Try to avoid GC pressure by reusing the output buffer.
+		//The buffer for an ImageData must be exactly the right length.
+		const requiredBufferByteLength = 4 * outputWidth * outputHeight
+		if (buffer.byteLength != requiredBufferByteLength) {
+			buffer = new Uint8ClampedArray(requiredBufferByteLength)
+		}
+		
+		for (let y = 0; y < outputHeight; y++) {
+			const worldLineStart = (y1+y) * worldWidth + x1
+			buffer.set(
+				y * outputWidth, 
+				world.colours.subarray(worldLineStart, worldLineStart+outputWidth)
+			)
+		}
+		
+		//The buffer for an ImageData must be a Uint8ClampedArray with non-shared backing storage.
+		context.putImageData(new ImageData(buffer, outputWidth, outputHeight), 0, 0)
+		
+		//I'm not sure about the placement of this RAF - should we kick off rendering at the end of the current frame and draw it immediately on the next, as opposed to kicking off the render and hoping it returns before the next frame? I think we could also put it in the web-worker, but that wouldn't really help us here. The advantage to the current way is that if an error is encountered, then we stop rendering so we can debug the error.
 		requestAnimationFrame(drawFrame)
 	}
 	requestAnimationFrame(drawFrame)

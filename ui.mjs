@@ -34,8 +34,11 @@ export const bindDisplayTo = (display, tools) => {
 			//canvas.clientHeight = 4;
 			console.log(`canvas resized to ${canvas.clientWidth}×${canvas.clientHeight} – TODO: copy pixel data here.`)
 			
-			world.simulationSize[0] = canvas.width  = Math.min(canvas.clientWidth, maxWorldSize.x);
-			world.simulationSize[1] = canvas.height = Math.min(canvas.clientHeight, maxWorldSize.y);
+			canvas.width  = Math.min(canvas.clientWidth, maxWorldSize.x);
+			canvas.height = Math.min(canvas.clientHeight, maxWorldSize.y);
+			
+			world.simulationWindow[2] = world.simulationWindow[0] + canvas.width;
+			world.simulationWindow[3] = world.simulationWindow[1] + canvas.height;
 		//})
 	}).observe(mainCanvas)
 	

@@ -26,18 +26,7 @@ export const world = {
 	
 	//Particle attribute arrays.
 	locks:        [Int32Array    , totalPixels], //Is this particle locked for processing? 0=no, >0 = logic worker, -1 = main thread, -2 = render worker
-	types:        [Uint8Array    , totalPixels],
-	ticks:        [Uint8Array    , totalPixels], //Used for is_new_tick. Stores whether last tick processed was even or odd. If this doesn't match the current tick, we know to advance the particle simulation one step.
-	stages:       [Uint8Array    , totalPixels], //Particle processing step. Usually 0 = hasn't moved yet, 1 = can't move, >2 = done.
-	colours:      [Uint32Array   , totalPixels], //This is copied directly to canvas.
-	velocityXs:   [Float32Array  , totalPixels],
-	velocityYs:   [Float32Array  , totalPixels],
-	subpixelXs:   [Float32Array  , totalPixels], //Position comes in through x/y coordinate on screen, but this does not capture subpixel position for slow-moving particles.
-	subpixelYs:   [Float32Array  , totalPixels],
-	masses:       [Float32Array  , totalPixels],
-	temperatures: [Float32Array  , totalPixels], //°C
 	scratchA:     [BigUint64Array, totalPixels], //internal state for the particle
-	scratchB:     [BigUint64Array, totalPixels],
 }
 
 //Hydrate our world data structure.
@@ -72,68 +61,5 @@ Object.freeze(world)
 Object.freeze(memory)
 
 //Enable easy script access for debugging.
-if (localStorage.devMode) {
-	window.world = world
-	window.memory = memory
-}
-
-
-/*
-
-This isn't needed for now, but I'm leaving it in in case I ever do need to pause the sim for stuff.
-
-/////////////////////////////
-//  Pause the simulation.  //
-/////////////////////////////
-
-let simulationPauseRequests = 0;
-export const SimulationIsPaused = () => !simulationPauseRequests
-
-//Returns an awaitable delay of ⪆10ms.
-const timeout = ms => new Promise(resolve => setTimeout(resolve, ms))
-const frame = () => new Promise(resolve => requestAnimationFrame(resolve))
-
-//Lock the world to run a function. Waits for all workers to finish.
-//cb: Callback. Can be async.
-//Note: We should probably coalesce calls, since this is being used for resizing the simulation.
-//Note: Wait. We might not need to pause the sim if we don't use a linear chunk of memory, because resizing it shouldn't lead to corruption then.
-export async function lockWorldTo(cb) {
-	simulationPauseRequests++
-	await workersSettled()
-	await cb()
-	simulationPauseRequests--
-}
-
-export const workersSettled = Atomics.waitAsync
-	? async () =>
-		Promise.all(new Array(world.totalWorkers[0]).fill().map((_, coreIndex) =>
-			Atomics.waitAsync(
-				world.workerStatuses, 
-				coreIndex, 
-				0, 
-				timeToWait - (iter*(timeToWait/lockAttempts))
-			)
-		))
-	: async () => {
-		throw new Error('TODO')
-	}
-*/
-
-
-export const workersAreRunning = () => {
-	for (let i = 0; i < world.totalWorkers[0]; i++) {
-		if (Atomics.load(world.workerStatuses, i)) {
-			return true
-		}
-	}
-	return false
-}
-
-
-
-function assertInRange(a, b, c) {
-	if (a > c) throw new RangeError(`min(${a}) > max(${c})`)
-	if (a > b) throw new RangeError(`min(${a}) > val(${b})`)
-	if (b > c) throw new RangeError(`val(${b}) > max(${c})`)
-	return b
-}
+window.world = world
+window.memory = memory

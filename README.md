@@ -1,31 +1,26 @@
 # DDR's __Stardust__
 
-Minimal reproduction of weird worker.postMessage() error.
+Minimal reproduction of weird console.log error for https://bugzilla.mozilla.org/show_bug.cgi?id=1613424.
 
 Serve with `./example_server.py` and visit http://127.0.0.1:8080/ to reproduce.
 
+![image](https://user-images.githubusercontent.com/862627/229399158-37db685b-5f8e-4b5a-accb-b4e35fd28b23.png)
+
 Expected console output
 ---
-```
-Worker Thread: [object Object],[object WebAssembly.Memory].
-Worker Thread: [object WebAssembly.Memory],[object Object].
-Worker Thread: [object Object],[object WebAssembly.Memory].
-Worker Thread: [object WebAssembly.Memory],[object Object].
+```js
+a ArrayBuffer(10)
+b SharedArrayBuffer(10)
 ```
 
 Actual console output
 ---
 - Firefox 109.0.1:
-	```
-	Worker Thread: [object Object],[object WebAssembly.Memory]. sim.mjs:1:47
-	[object MessageEvent] sim.mjs:2:45
-	Worker Thread: [object Object],[object WebAssembly.Memory]. sim.mjs:1:47
-	[object MessageEvent]
+	```js
+	a ArrayBuffer(10)
 	```
 - Chrome 110.0.5481.100:
-	```
-	Worker Thread: null.
-	Worker Thread: [object WebAssembly.Memory],[object Object].
-	Worker Thread: null.
-	Worker Thread: [object WebAssembly.Memory],[object Object].
+	```js
+	a ArrayBuffer(10)
+	b SharedArrayBuffer(10)
 	```

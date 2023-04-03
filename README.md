@@ -15,11 +15,11 @@ b SharedArrayBuffer(10)
 
 Actual console output
 ---
-- Firefox 109.0.1:
+- Firefox 111.0.1:
 	```js
 	a ArrayBuffer(10)
 	```
-- Chrome 110.0.5481.100:
+- Chrome 111.0.5563.110:
 	```js
 	a ArrayBuffer(10)
 	b SharedArrayBuffer(10)

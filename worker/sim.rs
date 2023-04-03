@@ -83,7 +83,7 @@ pub unsafe extern fn run(worker_id: i32) {
 	world.worker_statuses[worker_index as usize]
 		.store(WorkerStates::Running as i32, Ordering::Release);
 	
-	let total_pixels = world.simulation_window[2] - world.simulation_window[0] * world.simulation_window[3] - world.simulation_window[0];
+	let total_pixels = (world.simulation_window[2] - world.simulation_window[0]) * (world.simulation_window[3] - world.simulation_window[0]);
 	
 	let mut chunk_size = total_pixels / world.total_workers;
 	if chunk_size * world.total_workers < total_pixels {
@@ -93,6 +93,8 @@ pub unsafe extern fn run(worker_id: i32) {
 	
 	let chunk_start = chunk_size*(worker_index);
 	let chunk_end = cmp::min(chunk_start + chunk_size, total_pixels); //Total pixels may not divide evenly into number of worker cores.
+	_log_num(chunk_start as usize);
+	_log_num(chunk_end as usize);
 	
 	for n in chunk_start as usize .. chunk_end as usize {
 		if let Ok(_) = world.locks[n].compare_exchange(

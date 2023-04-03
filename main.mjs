@@ -26,7 +26,7 @@ const tick = () => {
 
 //Log the simulation values which are set in scratch memory by the workers on tick.
 const log = () => {
-	console.log(world.scratchA.slice(0,100))
+	console.log(world.scratchA.slice(0,100)) //Slice for brevity, only monitor the first worker's memory.
 }
 
 

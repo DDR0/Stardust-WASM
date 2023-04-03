@@ -16,7 +16,7 @@ const stringFromMem = (mem, index) =>
 		)
 		: "«null»"
 
-//See message sending code for why we use multiple messages. [Adu1bZ]
+//See message sending code for why we use multiple messages.
 let messageArgQueue = [];
 addEventListener("message", ({data}) => {
 	messageArgQueue.push(data)
@@ -63,9 +63,6 @@ self.start = async (workerID, worldBackingBuffer, world) => {
 			recoverCrashedWorker(world, workerID)
 		}
 	}
-	
-	//No-op in Firefox. See https://bugzilla.mozilla.org/show_bug.cgi?id=1613424, "Cannot log SharedArrayBuffer objects from a worker".
-	console.log(worldBackingBuffer.buffer.slice(wasmMemoryStartingByte, wasmMemoryStartingByte+100))
 }
 
 const recoverCrashedWorker = (world, workerID) => {

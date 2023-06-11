@@ -1,19 +1,15 @@
 //Let's count to 300. We'll have three web workers, each taking ⅓rd of the task. 0-100, 100-200, 200-300...
 
 //First, allocate some shared memory. (The original task wants to share some values around.)
-export const memory = (()=>{
-	const wasmPageSize = 65535
-	return new WebAssembly.Memory({
-		initial: Math.ceil(1500000/wasmPageSize),
-		maximum: Math.ceil(1500000/wasmPageSize),
-		shared: true,
-	})
-})()
+const memory = new WebAssembly.Memory({
+	initial: 23,
+	maximum: 23,
+	shared: true,
+})
 
 //Then, allocate the data views into the memory.
 //This is shared memory which will get updated by the worker threads, off the main thread.
-export const world = {
-	__proto__: null,
+const world = {
 	globalTick: new Int32Array(memory.buffer, 1200000, 1), //Current global tick. Increment to tell the workers to count up in scratchA!
 }
 
@@ -29,17 +25,14 @@ startAWorkerCore(1) //breaks counting - COMMENT THIS OUT TO FIX COUNTING
 startAWorkerCore(2) //breaks counting - COMMENT THIS OUT TO FIX COUNTING
 
 
-//Advance the simulation one step. (Trigger the worker threads to do their counting.)
-const tick = () => {
-	Atomics.add(world.globalTick, 0, 1)
-	Atomics.notify(world.globalTick, 0)
-}
-
-//Run the simulation thrice. Each thread should now print a hundred numbers in order, thrice.
+//Run the simulation thrice. Each thread should print a hundred numbers in order, thrice.
 //For thread 1, it should print 0, then 1, then 2, etc. up to 99.
 //Thread 2 should run from 100 to 199, and thread 3 200 to 299.
 //But when they're run simultaneously, all three threads seem to use the same counter.
-
 setTimeout(tick, 500)
 setTimeout(tick, 700)
 setTimeout(tick, 900)
+function tick() {
+	Atomics.add(world.globalTick, 0, 1)
+	Atomics.notify(world.globalTick, 0)
+}

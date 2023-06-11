@@ -5,6 +5,7 @@ use core::cmp;
 use core::panic::PanicInfo;
 use core::ptr;
 use core::sync::atomic::{AtomicI32, Ordering};
+use core::cell::UnsafeCell;
 
 mod js {
     #[link(wasm_import_module = "imports")]
@@ -17,29 +18,35 @@ mod js {
 use js::*;
 
 #[repr(C)] //C structs are padded by default, which is taken care of back in JS-land by rounding to the next BYTES_PER_ELEMENT.
-struct World {
+pub struct World {
     global_tick: AtomicI32,          //Current global tick.
     worker_statuses: [AtomicI32; 3], //Used by workers, last one to finish increments tick.
     scratch_a: [u64; 300],           //internal state for the particle
 }
 
-#[inline]
-fn get_world() -> &'static mut World {
-    const WASM_MEMORY_STARTING_BYTE: usize = 1200000;
-    const WORLD_POINTER: *mut World = WASM_MEMORY_STARTING_BYTE as *mut World;
-    unsafe {
-        &mut *WORLD_POINTER //Too short? Is this fine? WORLD_POINTER.as_mut().expect("Failed to create pointer. (This should never happen.)") also works.
-    }
-}
+static mut WORLD: UnsafeCell<World> = UnsafeCell::<World>::new(World {
+	global_tick: AtomicI32::new(0),
+	worker_statuses: [AtomicI32::new(0), AtomicI32::new(0), AtomicI32::new(0)],
+	scratch_a: [0u64; 300],
+});
+
+#[no_mangle] //Expose world pointer to JS.
+pub unsafe extern "C" fn get_world_ref() -> *mut World { WORLD.get() }
+
+//TODO: Follow up on these suggestions. https://discord.com/channels/273534239310479360/592856094527848449/1116611239829839942
+//Basically, Talchas recommends first passing back a `static mut WORLD: World` from the Rust, let it manage it.
+//Or `static WORLD: UnsafeCell<World>` but the syntax is apparently pretty awful for that.
+//But mainly: to be correct you need to keep the World behind a raw pointer at all times, and use addr_of!() to get to the atomics and the start of the array
 
 #[no_mangle]
 pub unsafe extern "C" fn run(worker_id: i32) {
     let worker_index = worker_id as u32 - 1;
-    let world = get_world();
     //_log_num(world as *const World as usize);
+    
+    let world = WORLD.get();
 
     //Mark this worker as started.
-    world.worker_statuses[worker_index as usize].store(1, Ordering::Release);
+    (*world).worker_statuses[worker_index as usize].store(1, Ordering::Release);
 
     const TOTAL_PIXELS: u32 = 300;
     const TOTAL_WORKERS: u32 = 3;
@@ -53,11 +60,11 @@ pub unsafe extern "C" fn run(worker_id: i32) {
 
     //For each value we're responsible for, increment it by 1.
     for n in chunk_start as usize..chunk_end as usize {
-        world.scratch_a[n] += 1;
+        (*world).scratch_a[n] += 1;
     }
 
     //Mark this worker as finished. Should sync all previously written data in this memory model, as I understand it.
-    world.worker_statuses[worker_index as usize].store(0, Ordering::Release);
+    (*world).worker_statuses[worker_index as usize].store(0, Ordering::Release);
 }
 
 #[panic_handler]

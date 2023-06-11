@@ -1,6 +1,7 @@
 const wasmSource = fetch("sim.wasm") //kick off the request now, we're going to need it
 
-const wasmMemoryStartingByte = 1200000 //World location in memory. Somewhere above what we're using to run the program.
+let workerID //Our unique number, starting at 1.
+let sim //After init, the Rust-exported functions via WASM.
 
 //Extract a utf-8 string from WASM memory, converting it to a utf-16 Javascript String.
 //Very much not zero-copy.
@@ -19,13 +20,17 @@ const stringFromMem = (mem, index) =>
 //See message sending code for why we use multiple messages.
 let messageArgQueue = [];
 addEventListener("message", ({data}) => {
-	messageArgQueue.push(data)
-	if (messageArgQueue.length === 4) {
+	if (data === null) {
 		self[messageArgQueue[0]].apply(0, messageArgQueue.slice(1))
+		messageArgQueue.length = 0
+	} else {
+		messageArgQueue.push(data)
 	}
 })
 
-self.start = async (workerID, worldBackingBuffer, world) => {
+self.init = async (newWorkerID, worldBackingBuffer, world) => {
+	workerID = newWorkerID
+	
 	console.info(`Sim core ${workerID} started.`)
 	
 	//Expose a few values for debugging.
@@ -49,8 +54,12 @@ self.start = async (workerID, worldBackingBuffer, world) => {
 		},
 	})
 	
-	const sim = wasm.instance.exports
+	sim = wasm.instance.exports
 	
+	if (workerID === 1) postMessage({event: 'world backing buffer address', data: sim.get_world_ref()})
+}
+
+self.run = async world => {
 	let lastProcessedTick = 0
 	while (1) {
 		Atomics.wait(world.globalTick, 0, lastProcessedTick)
@@ -62,6 +71,8 @@ self.start = async (workerID, worldBackingBuffer, world) => {
 			console.error(`core ${workerID}`, e)
 			recoverCrashedWorker(world, workerID)
 		}
+		
+		if (world.globalTick[0] === 3) debugger;
 	}
 }
 

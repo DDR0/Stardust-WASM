@@ -1,21 +1,35 @@
-import {world, memory} from './world.mjs'
+import {memory, getWorldAt} from './world.mjs'
 
 //Let's count to 3!
 //We'll count a bunch of times to make sure we get it right.
 //However, we never seem to get it right if we have multple workers
 //counting at once, even though they're working on different values.
 
+var initializeWith
+const initialized = new Promise(resolve => initializeWith = resolve)
+
 //Load a core and send the "start" event to it.
 const startAWorkerCore = coreIndex => {
 	const worker = new Worker('worker/sim.mjs', {type:'module'})
-	;['start', coreIndex+1, memory, world].forEach(arg => worker.postMessage(arg)) //Marshal the "start" message across multiple postMessages because of the following bugs: 1. Must transfer memory BEFORE world. https://bugs.chromium.org/p/chromium/issues/detail?id=1421524 2. Must transfer world BEFORE memory. https://bugzilla.mozilla.org/show_bug.cgi?id=1821582
+	;['init', coreIndex+1, memory, null].forEach(arg => worker.postMessage(arg)) //Marshal the "start" message across multiple postMessages because of the following bugs: 1. Must transfer memory BEFORE world. https://bugs.chromium.org/p/chromium/issues/detail?id=1421524 2. Must transfer world BEFORE memory. https://bugzilla.mozilla.org/show_bug.cgi?id=1821582
+	worker.addEventListener('message', ({data: {data, event}}) => {
+		initializeWith(getWorldAt(data))
+	})
+	return worker
 }
 
 //Now, let's start some worker threads! They will work on different memory locations, so they don't conflict.
-startAWorkerCore(0) //works fine
-startAWorkerCore(1) //breaks counting - COMMENT THIS OUT TO FIX COUNTING
-startAWorkerCore(2) //breaks counting - COMMENT THIS OUT TO FIX COUNTING
+let w1 = startAWorkerCore(0) //works fine
+let w2 = startAWorkerCore(1) //breaks counting - COMMENT THIS OUT TO FIX COUNTING
+let w3 = startAWorkerCore(2) //breaks counting - COMMENT THIS OUT TO FIX COUNTING
 
+const world = await initialized
+console.log('got world', world)
+;['run', world, null].forEach(arg => {
+	w1.postMessage(arg)
+	w2.postMessage(arg)
+	w3.postMessage(arg)
+}) 
 
 //Advance the simulation one step. (Trigger the worker threads to do their work.)
 //Right now, the simulation increments each value in scratch space by 1.

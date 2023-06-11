@@ -45,7 +45,7 @@ self.start = async (workerID, worldBackingBuffer, world) => {
 				const message  = stringFromMem(worldBackingBuffer, messagePtr )
 				throw new Error(`${message} (${location}:${row}:${column}, thread ${workerID})`)
 			},
-			_log_num: num => console.log(`sim ${workerID}: number ${num}`),
+			_log_num: num => console.log(`thread ${workerID}: n is ${num}`),
 		},
 	})
 	

@@ -1,9 +1,21 @@
-import {world, memory} from './world.mjs'
+//Let's count to 300. We'll have three web workers, each taking ⅓rd of the task. 0-100, 100-200, 200-300...
 
-//Let's count to 3!
-//We'll count a bunch of times to make sure we get it right.
-//However, we never seem to get it right if we have multple workers
-//counting at once, even though they're working on different values.
+//First, allocate some shared memory. (The original task wants to share some values around.)
+export const memory = (()=>{
+	const wasmPageSize = 65535
+	return new WebAssembly.Memory({
+		initial: Math.ceil(1500000/wasmPageSize),
+		maximum: Math.ceil(1500000/wasmPageSize),
+		shared: true,
+	})
+})()
+
+//Then, allocate the data views into the memory.
+//This is shared memory which will get updated by the worker threads, off the main thread.
+export const world = {
+	__proto__: null,
+	globalTick: new Int32Array(memory.buffer, 1200000, 1), //Current global tick. Increment to tell the workers to count up in scratchA!
+}
 
 //Load a core and send the "start" event to it.
 const startAWorkerCore = coreIndex => {
@@ -17,27 +29,17 @@ startAWorkerCore(1) //breaks counting - COMMENT THIS OUT TO FIX COUNTING
 startAWorkerCore(2) //breaks counting - COMMENT THIS OUT TO FIX COUNTING
 
 
-//Advance the simulation one step. (Trigger the worker threads to do their work.)
-//Right now, the simulation increments each value in scratch space by 1.
+//Advance the simulation one step. (Trigger the worker threads to do their counting.)
 const tick = () => {
 	Atomics.add(world.globalTick, 0, 1)
 	Atomics.notify(world.globalTick, 0)
 }
 
-//Log the simulation values which are set in scratch memory by the workers on tick.
-const log = () => {
-	console.log(world.scratchA.slice(0,100)) //Slice for brevity, only monitor the first worker's memory.
-}
+//Run the simulation thrice. Each thread should now print a hundred numbers in order, thrice.
+//For thread 1, it should print 0, then 1, then 2, etc. up to 99.
+//Thread 2 should run from 100 to 199, and thread 3 200 to 299.
+//But when they're run simultaneously, all three threads seem to use the same counter.
 
-
-//The following should output a list of 0s, then 1s, 2s, and 3s.
-//It does if you only start one worker.
-//Otherwise the 3s have 4s and 2s in them as things go off the rails.
-
-setTimeout(log,  500) //expected [0n, 0n, 0n, ...]
 setTimeout(tick, 500)
-setTimeout(log,  700) //expected [1n, 1n, 1n, ...]
 setTimeout(tick, 700)
-setTimeout(log,  900) //expected [2n, 2n, 2n, ...]
 setTimeout(tick, 900)
-setTimeout(log, 1100) //expected [3n, 3n, 3n, ...]

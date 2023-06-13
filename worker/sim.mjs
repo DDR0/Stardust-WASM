@@ -20,6 +20,9 @@ self.start = async (workerID, worldBackingBuffer, world) => {
 		},
 	})
 	
+	//Initialise thread-local storage, so we get separate stacks for our local variables.
+	wasm.instance.exports.__wasm_init_tls(workerID-1)
+	
 	//Loop, running the Rust logging loop when the "tick" advances.
 	let lastProcessedTick = 0
 	while (1) {

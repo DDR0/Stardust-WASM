@@ -1,7 +1,7 @@
 DDR's __Stardust__
 ==================
 
-A nacent falling sand game. This project has been closed due to extreme technical difficulty getting multithreaded rust to work - for the most recent work, please see the [multithreading-issue-reproduction-3](https://github.com/DDR0/Stardust/edit/multithreading-issue-reproduction-3) branch.
+A nacent falling sand game. This project has been closed due to extreme technical difficulty getting multithreaded Rust to work - for the most recent work, please see the [multithreading-issue-reproduction-3](https://github.com/DDR0/Stardust/edit/multithreading-issue-reproduction-3) branch.
 
 Some next steps to go on, should anyone feel like chasing them down:
 > All workers using the same section of linear memory for their stack could result in that bug.

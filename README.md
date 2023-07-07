@@ -17,7 +17,7 @@ Some next steps to go on, should anyone feel like chasing them down:
 > (in an optimized build n might be a wasm local, but in an unoptimized debug build I would expect n to spill out to linear memory)
 —@MaulingMonkey from the Game Development In Rust Discord
 
-[A question](https://stackoverflow.com/questions/76452839/how-to-compile-rust-for-use-with-wasms-shared-memory) has also been posted to SO, but it remains open at time of writing.
+[A question](https://stackoverflow.com/questions/76452839/how-to-compile-rust-for-use-with-wasms-shared-memory) has also been posted to SO. It seems wasm-bindgen does some Assembly Magic to make this work, so using that would be the next step should anyone like to take it.
 
 I have made [a blog post](https://ddr0.ca/blog-posts/19.Negative_Results) on my personal site, summing development up.
 

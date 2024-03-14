@@ -12,15 +12,13 @@ if [[ $1 == *help ]]; then
 	exit 0
 fi
 
-if [[ $1 == *init ]]; then
+if [[ $1 == *uninit ]]; then
+	rustup override unset
+	exit 0
+elif [[ $1 == *init ]]; then
 	rustup toolchain install nightly
 	rustup override set nightly
 	rustup component add rust-src --toolchain nightly
-	exit 0
-fi
-
-if [[ $1 == *uninit ]]; then
-	rustup override unset
 	exit 0
 fi
 

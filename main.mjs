@@ -8,6 +8,7 @@ const showErrorMessage = message =>
 		</div>
 	`
 
+<<<<<<< HEAD
 if (!window.isSecureContext) {
 	showErrorMessage("This website was not served in a secure context, which is required by <em>Stardust</em>. This is likely the result of a server misconfiguration.")
 }
@@ -68,7 +69,6 @@ const simulationCores = new Array(availableCores).fill().map((_, coreIndex) => {
 	console.info(`Initialised sim core ${coreNumber}/${availableCores}.`)
 	
 	return worker
-})
 
 
 const simulate = (()=>{

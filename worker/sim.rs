@@ -70,7 +70,7 @@ fn get_world() -> &'static mut World {
 }
 
 #[no_mangle]
-pub unsafe extern fn run(worker_id: i32) {
+pub unsafe extern "C" fn run(worker_id: i32) {
 	debug_assert!(worker_id >= 1, "Bad worker_id passed in, too small.");
 	let worker_index = worker_id as u32 - 1;
 	let world = get_world();
@@ -115,12 +115,12 @@ pub unsafe extern fn run(worker_id: i32) {
 #[panic_handler]
 unsafe fn panic(info: &PanicInfo) -> ! {
 	if let Some(location) = info.location() { //`info.location` is always None.
-			abort(
-				ptr::addr_of!(**info.payload().downcast_ref::<&str>().unwrap_or(&"unknown panic")) as *const() as usize,
-				ptr::addr_of!(*location.file()) as *const() as usize,
-				location.line(),
-				location.column()
-			);
+		abort(
+			info.message().as_str().unwrap_or("unknown panic") as *const str as *const () as usize,
+			ptr::addr_of!(*location.file()) as *const() as usize,
+			location.line(),
+			location.column()
+		);
 	} else {
 		abort(0, 0, 0, 0)
 	}

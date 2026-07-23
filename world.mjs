@@ -50,6 +50,8 @@ export const memory = (()=>{
 			+ type.BYTES_PER_ELEMENT * entries,
 		wasmMemoryStartingByte
 	)
+	const basePages = Math.ceil(numBytesNeeded/wasmPageSize)
+	const wasmPages = 128
 	return new WebAssembly.Memory({
 		initial: Math.ceil(numBytesNeeded/wasmPageSize),
 		maximum: Math.ceil(numBytesNeeded/wasmPageSize),

@@ -77,7 +77,7 @@ self.start = async (workerID, worldBackingBuffer, world) => {
 	const REGION_BASE = 2 * 1024 * 1024 //Above the module's static data, heap base, and world.globalTick.
 	const STACK_SIZE  = 512 * 1024      //Plenty for this program; grows downward from the top of the block.
 	const align = n => (n + 15) & ~15
-	const tlsSize = align(exports.__tls_size.value) //0 here (no #[thread_local]s), but honour it for correctness.
+	const tlsSize = align(sim.__tls_size.value) //0 here (no #[thread_local]s), but honour it for correctness.
 	const blockSize = tlsSize + STACK_SIZE
 	const blockBase = REGION_BASE + workerIndex * blockSize
 

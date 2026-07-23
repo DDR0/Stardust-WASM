@@ -33,4 +33,5 @@ then
 	"
 else
 	cargo build --target=wasm32-unknown-unknown -Zbuild-std
+	cp target/wasm32-unknown-unknown/debug/stardust-worker.wasm sim.wasm
 fi

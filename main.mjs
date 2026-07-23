@@ -1,9 +1,11 @@
 //Let's count to 300. We'll have three web workers, each taking ⅓rd of the task. 0-100, 100-200, 200-300...
 
 //First, allocate some shared memory. (The original task wants to share some values around.)
+//64 pages (4 MiB) leaves room for the module's static data/heap plus a separate
+//shadow-stack + TLS block per worker thread (see worker/sim.mjs for the layout).
 const memory = new WebAssembly.Memory({
-	initial: 23,
-	maximum: 23,
+	initial: 64,
+	maximum: 64,
 	shared: true,
 })
 
@@ -20,9 +22,11 @@ const startAWorkerCore = coreIndex => {
 }
 
 //Now, let's start some worker threads! They will work on different memory locations, so they don't conflict.
-startAWorkerCore(0) //works fine
-startAWorkerCore(1) //breaks counting - COMMENT THIS OUT TO FIX COUNTING
-startAWorkerCore(2) //breaks counting - COMMENT THIS OUT TO FIX COUNTING
+//Each worker now gets its own shadow stack + TLS block (see worker/sim.mjs), so all
+//three count their own range concurrently without clobbering each other's locals.
+startAWorkerCore(0)
+startAWorkerCore(1)
+startAWorkerCore(2)
 
 
 //Run the simulation thrice. Each thread should print a hundred numbers in order, thrice.

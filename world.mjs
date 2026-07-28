@@ -80,46 +80,6 @@ if (localStorage.devMode) {
 }
 
 
-/*
-
-This isn't needed for now, but I'm leaving it in in case I ever do need to pause the sim for stuff.
-
-/////////////////////////////
-//  Pause the simulation.  //
-/////////////////////////////
-
-let simulationPauseRequests = 0;
-export const SimulationIsPaused = () => !simulationPauseRequests
-
-//Returns an awaitable delay of ⪆10ms.
-const timeout = ms => new Promise(resolve => setTimeout(resolve, ms))
-const frame = () => new Promise(resolve => requestAnimationFrame(resolve))
-
-//Lock the world to run a function. Waits for all workers to finish.
-//cb: Callback. Can be async.
-//Note: We should probably coalesce calls, since this is being used for resizing the simulation.
-//Note: Wait. We might not need to pause the sim if we don't use a linear chunk of memory, because resizing it shouldn't lead to corruption then.
-export async function lockWorldTo(cb) {
-	simulationPauseRequests++
-	await workersSettled()
-	await cb()
-	simulationPauseRequests--
-}
-
-export const workersSettled = Atomics.waitAsync
-	? async () =>
-		Promise.all(new Array(world.totalWorkers[0]).fill().map((_, coreIndex) =>
-			Atomics.waitAsync(
-				world.workerStatuses, 
-				coreIndex, 
-				0, 
-				timeToWait - (iter*(timeToWait/lockAttempts))
-			)
-		))
-	: async () => {
-		throw new Error('TODO')
-	}
-*/
 
 
 export const workersAreRunning = () => {

@@ -93,8 +93,8 @@ pub unsafe extern "C" fn run(worker_id: i32) {
 	
 	let chunk_start = chunk_size*(worker_index);
 	let chunk_end = cmp::min(chunk_start + chunk_size, total_pixels); //Total pixels may not divide evenly into number of worker cores.
-	_log_num(chunk_start as usize);
-	_log_num(chunk_end as usize);
+	//_log_num(chunk_start as usize);
+	//_log_num(chunk_end as usize);
 	
 	for n in chunk_start as usize .. chunk_end as usize {
 		if let Ok(_) = world.locks[n].compare_exchange(

@@ -17,7 +17,7 @@ const stringFromMem = (mem, index) =>
 			//Warning: Racy. Time of check for trailing null != time of copy.
 			new Uint8Array(mem.buffer).slice(
 				index,
-				index + new Uint8Array(mem.buffer, index).indexOf(0),
+				index + new Uint8Array(mem.buffer, index).indexOf(0), //Doubly stupid because we're converting Rust non-null-terminated strings to this. (I blame C.)
 			)
 		)
 		: "«null»"
@@ -86,6 +86,8 @@ self.start = async (workerID, worldBackingBuffer, world) => {
 	//very first function entry runs on this worker's own stack rather than the shared one.
 	sim.__stack_pointer.value = blockBase + blockSize
 	sim.__wasm_init_tls(blockBase)
+	
+	console.info(`${workerID}: tls: 0x${blockBase.toString(16)}, stack pointer: 0x${sim.__stack_pointer.value.toString(16)}`)
 
 	let now = () => performance.now()
 	
@@ -99,28 +101,13 @@ self.start = async (workerID, worldBackingBuffer, world) => {
 			sim.run(workerID)
 		} catch (e) {
 			console.error(`core ${workerID}`, e)
-			recoverCrashedWorker(world, workerID)
+			debugger;
+			break;
 		}
 		
-		console.log(`wasm time: ${(now()-wasmTime).toFixed(2)}ms`)
+		console.info(`${workerID}: wasm time: ${(now()-wasmTime).toFixed(2)}ms`)
 	}
 	
 }
 
 console.info("Sim core listening.")
-
-const recoverCrashedWorker = (world, workerID) => {
-	const workerIndex = workerID - 1
-	Atomics.store(world.workerStatuses, workerIndex, 3) //mark crashed
-	
-	const totalPixels = world.simulationWindow[2] - world.simulationWindow[0] * world.simulationWindow[3] - world.simulationWindow[0]
-	
-	let chunkSize = Math.ceil(totalPixels / world.totalWorkers);
-	
-	for (let y = world.simulationWindow[0]; y < world.simulationWindow[2]; y++)
-		for (let x = world.simulationWindow[1]; x < world.simulationWindow[3]; x++)
-			if (world.locks[y*3840 + x] === workerID) //maxWorldSize.x
-				world.locks[y*3840 + x] = 0 //Mark particle unlocked, as we crashed while processing it. Consistency is not guaranteed after this point!
-	
-	Atomics.store(world.workerStatuses, workerIndex, 0) //mark ready
-}

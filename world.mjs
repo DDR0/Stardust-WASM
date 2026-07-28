@@ -34,7 +34,6 @@ export const world = {
 	velocityYs:   [Float32Array  , totalPixels],
 	subpixelXs:   [Float32Array  , totalPixels], //Position comes in through x/y coordinate on screen, but this does not capture subpixel position for slow-moving particles.
 	subpixelYs:   [Float32Array  , totalPixels],
-	masses:       [Float32Array  , totalPixels],
 	temperatures: [Float32Array  , totalPixels], //°C
 	scratchA:     [BigUint64Array, totalPixels], //internal state for the particle
 	scratchB:     [BigUint64Array, totalPixels],
@@ -80,6 +79,8 @@ if (localStorage.devMode) {
 }
 
 
+//Do some initial setup.
+world.temperatures.fill(24);
 
 
 export const workersAreRunning = () => {

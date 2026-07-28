@@ -52,7 +52,6 @@ struct World {
 	velocity_ys:  [f32      ; TOTAL_PIXELS],
 	subpixel_xs:  [f32      ; TOTAL_PIXELS], //Position comes in through x/y coordinate on screen, but this does not capture subpixel position for slow-moving particles.
 	subpixel_ys:  [f32      ; TOTAL_PIXELS],
-	masses:       [f32      ; TOTAL_PIXELS],
 	temperatures: [f32      ; TOTAL_PIXELS], //°C
 	scratch_a:    [u64      ; TOTAL_PIXELS], //internal state for the particle
 	scratch_b:    [u64      ; TOTAL_PIXELS],

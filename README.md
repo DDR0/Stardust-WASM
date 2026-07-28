@@ -36,3 +36,8 @@ Optionally, to rebuild the simulation core with Rust, you'll also need to:
 
 - `localStorage.devMode = true`: Expose `world` in the global context, for debugging. (May affect other dev-y options too.)
 - `localStorage.coreOverride = N`: Set the number of processing cores used to N, where N >= 0. If N is 0, processing cores are calculated automatically based on `navigator.hardwareConcurrency`.
+
+## Bugs
+
+- Closed https://bugzilla.mozilla.org/show_bug.cgi?id=1613424 after 6 years.
+- Closed https://stackoverflow.com/questions/76452839/how-to-compile-rust-for-use-with-wasms-shared-memory/79984357#79984357 after 3 years.

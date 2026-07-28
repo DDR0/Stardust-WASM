@@ -43,8 +43,17 @@ const availableCores = Math.min(256, //max number of cores we support - I recogn
 );
 
 world.wrappingBehaviour.fill(1) //0 is air, 1 is wall, etc. Default to wall.
-//world.simulationWindow.set([0, 0, canvas.clientWidth, canvas.clientHeight])
 world.totalWorkers[0] = availableCores
+
+let ctrlHeld = false
+let altHeld = false
+for (const eventName of ['keydown', 'keyup']) {
+	document.addEventListener(eventName, ({ctrlKey, altKey}) => {
+		ctrlHeld = ctrlKey
+		altHeld = altKey
+		console.log(ctrlHeld, altHeld)
+	})
+};
 
 
 
@@ -107,9 +116,9 @@ if (localStorage.devMode) {
 	//Flip the colours of the particles to the canvas.
 	const context = canvas.getContext('2d')
 	let buffer = new Uint8ClampedArray(0)
+	let bufferView = new Uint32Array(0)
 	requestAnimationFrame(function drawFrame() {
 		const [x1, y1, x2, y2] = world.simulationWindow
-		const {y: worldWidth} = maxWorldSize
 		
 		const outputWidth  = x2-x1 || 1,
 		      outputHeight = y2-y1 || 1
@@ -119,18 +128,19 @@ if (localStorage.devMode) {
 		const requiredBufferByteLength = 4 * outputWidth * outputHeight
 		if (buffer.byteLength != requiredBufferByteLength) {
 			buffer = new Uint8ClampedArray(requiredBufferByteLength)
+			bufferView = new Uint32Array(buffer.buffer)
 		}
 		
 		//For each line of the simulation, copy the colours to a contiguous rect to draw to canvas.
 		//Visually: data:image/gif;base64,R0lGODdhJQARAIABAAAAAP///ywAAAAAJQARAAACTIyPqcsGD6N8rQZgEc5rc89px6SA2gQ54cWYo+pIpaiSm9uYdwtfcoKx+SKs4gfYQxozIE9QtgvhlrRpp4WiUCtWS1e5GmWz4bI5UQAAOw==
-		for (let y = 0; y < outputHeight; y++) {
-			const worldLineStart = (y1+y) * worldWidth + x1
-			buffer.set(
-				y * outputWidth, 
-				world.colours.subarray(worldLineStart, worldLineStart+outputWidth)
-			)
-		}
+		const worldLineStart = (y1 * maxWorldSize.x) + x1
 		
+		// Do a bulk copy if we can.
+		bufferView.set(
+			world.colours.subarray(worldLineStart, worldLineStart+(outputWidth*outputHeight))
+		)
+		
+		if (altHeld) debugger;
 		//The buffer for an ImageData must be a Uint8ClampedArray with non-shared backing storage.
 		context.putImageData(new ImageData(buffer, outputWidth, outputHeight), 0, 0)
 		
@@ -144,10 +154,102 @@ bindDisplayTo($("#stardust-game"), {
 	step: simulate.tick,
 	pause: simulate.pause,
 	
-	pick: (x,y) => {},
-	dot:  (x,y, radius, type) => {},
-	line: (x1, y1, x2, y2, radius, type) => {},
-	rect: (x1, y1, x2, y2, radius, type) => {},
+	pick: (x,y) => {
+		const [x1, y1] = world.simulationWindow
+		const i = (y1 + y) * maxWorldSize.x + x1 + x
+		return world.types[i]
+	},
+	dot:  (x,y, radius, type) => {
+		createParticle(x, y, {
+			__proto__: null, 
+			type, 
+			colour: type === 1 ? 0xFF00FFFF : 0xFFFFFF00, //AABBGGRR
+		})
+	},
+	line: (x1, y1, x2, y2, radius, type) => {
+		if (x1 > x2) [x2, x1] = [x1, x2]
+		if (y1 > y2) [y2, y1] = [y1, y2]
+		let x = x1
+		let y = y1
+		
+		for (; x < x2; x++) {
+			createParticle(x, y, {
+				__proto__: null, 
+				type, 
+				colour: type === 1 ? 0xFF00FFFF : 0xFFFFFF00, //AABBGGRR
+			})
+		}
+		for (; y < y2; y++) {
+			createParticle(x, y, {
+				__proto__: null, 
+				type,
+				colour: type === 1 ? 0xFF00FFFF : 0xFFFFFF00, //AABBGGRR
+			})
+		}
+	},
+	rect: (x1, y1, x2, y2, radius, type) => {
+		if (x1 > x2) [x2, x1] = [x1, x2]
+		if (y1 > y2) [y2, y1] = [y1, y2]
+		for (let x = x1; x < x2; x++) {
+			for (let y = y1; y < y2; y++) {
+				createParticle(x, y, {
+					__proto__: null, 
+					type, 
+					colour: type === 1 ? 0xFF00FFFF : 0xFFFFFF00, //AABBGGRR
+				})
+			}
+		}
+	},
 })
+
+function createParticle(x,y, options) {
+	const [x1, y1, x2, y2] = world.simulationWindow
+	const i = ((y1 + y) * (x2-x1)) + x1 + x
+	
+	console.log('creating', x, y, options)
+	
+	if (Atomics.compareExchange(world.locks, i, 0, -1)) return
+	
+	world.types[i] = options.type ?? 1
+	world.ticks[i] = world.globalTick % 2
+	world.stages[i] = options.stage ?? 0
+	world.colours[i] = options.colour ?? 0
+	world.velocityXs[i] = options.velocityX ?? 0
+	world.velocityYs[i] = options.velocityY ?? 0
+	world.subpixelXs[i] = options.subpixelX ?? 0.5
+	world.subpixelYs[i] = options.subpixelY ?? 0.5
+	world.temperatures[i] = options.temperature ?? 24
+	world.scratchA[i] = options.scratchA ?? BigInt(0)
+	world.scratchB[i] = options.scratchB ?? BigInt(0)
+	
+	Atomics.store(world.locks, i, 0)
+	
+	console.log('done')
+}
+
+function setParticle(x,y, options) {
+	const [x1, y1, x2, y2] = world.simulationWindow
+	const i = ((y1 + y) * (x2-x1)) + x1 + x
+	
+	console.log('setting', x, y, options)
+	
+	if (Atomics.compareExchange(world.locks, i, 0, -1)) return
+	
+	if('types' in options) world.types[i] = options.types
+	if('ticks' in options) world.ticks[i] = options.ticks
+	if('stages' in options) world.stages[i] = options.stages
+	if('colours' in options) world.colours[i] = options.colours
+	if('velocityXs' in options) world.velocityXs[i] = options.velocityXs
+	if('velocityYs' in options) world.velocityYs[i] = options.velocityYs
+	if('subpixelXs' in options) world.subpixelXs[i] = options.subpixelXs
+	if('subpixelYs' in options) world.subpixelYs[i] = options.subpixelYs
+	if('temperatures' in options) world.temperatures[i] = options.temperatures
+	if('scratchA' in options) world.scratchA[i] = options.scratchA
+	if('scratchB' in options) world.scratchB[i] = options.scratchB
+	
+	Atomics.store(world.locks, i, 0)
+	
+	console.log('done')
+}
 
 console.info('Main thread loaded.')

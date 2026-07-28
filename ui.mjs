@@ -6,13 +6,13 @@
 import { world, maxWorldSize } from './world.mjs'
 
 //Mutable state.
-let selectedTypeId = 0
+let selectedTypeID = 0
 let selectedTool = ""
 let toolRadius = 10 //particles
 
 //Needed for colour picker logic.
 export const setSelectedTool = id => {
-	selectedTypeId = id
+	selectedTypeID = id
 	console.log('todo: update tool selection')
 }
 
@@ -23,7 +23,7 @@ export const bindDisplayTo = (display, tools) => {
 	
 	const mainCanvas = $('canvas.main')
 	
-	selectedTypeId = +$('.toolbox [name=type_id]:checked').value
+	selectedTypeID = +$('.toolbox [name=type_id]:checked').value
 	selectedTool = $('.toolbox [name=tool]:checked').value
 	
 	// Canvas resizing.
@@ -46,7 +46,7 @@ export const bindDisplayTo = (display, tools) => {
 	// Toolbox logic.
 	for (const input of $$('.toolbox [name=type_id]')) {
 		input.addEventListener('change', evt => {
-			selectedTypeId = +evt.target.value
+			selectedTypeID = +evt.target.value
 			updateCursor()
 			return evt.stopPropagation()
 		})
@@ -85,10 +85,10 @@ export const bindDisplayTo = (display, tools) => {
 			
 			switch (selectedTool) {
 				case "picker":
-					tools.pick(x1, y2)
+					selectedTypeID = tools.pick(x1, y1)
 					break
 				case "pencil":
-					tools.dot(x1, y1, toolRadius, selectedTypeId)
+					tools.dot(x1, y1, toolRadius, selectedTypeID)
 					break
 				case "eraser":
 					tools.dot(x1, y1, toolRadius, 0)
@@ -107,10 +107,10 @@ export const bindDisplayTo = (display, tools) => {
 			
 			switch (selectedTool) {
 				case "picker":
-					tools.pick(x1, y2)
+					selectedTypeID = tools.pick(x1, y1)
 					break
 				case "pencil":
-					tools.line(x1, y1, x2, y2, toolRadius, selectedTypeId)
+					tools.line(x1, y1, x2, y2, toolRadius, selectedTypeID)
 					break
 				case "eraser":
 					tools.line(x1, y1, x2, y2, toolRadius, 0)

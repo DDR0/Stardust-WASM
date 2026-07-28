@@ -44,7 +44,7 @@ export const bindDisplayTo = (display, tools) => {
 	
 	
 	// Toolbox logic.
-	for (let input of $$('.toolbox [name=type_id]')) {
+	for (const input of $$('.toolbox [name=type_id]')) {
 		input.addEventListener('change', evt => {
 			selectedTypeId = +evt.target.value
 			updateCursor()
@@ -52,10 +52,17 @@ export const bindDisplayTo = (display, tools) => {
 		})
 	}
 	
-	for (let input of $$('.toolbox [name=tool]')) {
+	for (const input of $$('.toolbox [name=tool]')) {
 		input.addEventListener('change', evt => {
 			selectedTool = evt.target.value
 			updateCursor()
+			return evt.stopPropagation()
+		})
+	}
+	
+	for (const input of $$('.toolbox [name=simulation-control]')) {
+		input.addEventListener('click', evt => {
+			tools[evt.target.value]()
 			return evt.stopPropagation()
 		})
 	}

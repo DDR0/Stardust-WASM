@@ -140,7 +140,10 @@ if (localStorage.devMode) {
 }
 
 bindDisplayTo($("#stardust-game"), {
-	pause: state => paused = state ?? !paused,
+	play: simulate.play,
+	step: simulate.tick,
+	pause: simulate.pause,
+	
 	pick: (x,y) => {},
 	dot:  (x,y, radius, type) => {},
 	line: (x1, y1, x2, y2, radius, type) => {},

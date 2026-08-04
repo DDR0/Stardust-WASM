@@ -25,7 +25,7 @@ fi
 if command -v entr > /dev/null
 then
 	echo Watching *.rs for changes.
-	echo *.rs | entr -ccs "
+	printf '%s\n' src/*.rs | entr -ccs "
 		cargo build --target=wasm32-unknown-unknown -Zbuild-std
 		cp target/wasm32-unknown-unknown/debug/stardust-worker.wasm sim.wasm
 	"

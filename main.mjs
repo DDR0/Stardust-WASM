@@ -34,12 +34,13 @@ const canvas = $("#stardust-game canvas.main")
 const defaultHardwareConcurrency = 4;
 const reservedCores = 2; //One for main thread, one for the render thread; the rest are used for processing. This means at minimum we run with 3 threads, even if we're on a single-core CPU.
 //Note: Safari doesn't support hardwareConcurrency as of 2022-06-09.
-const availableCores = Math.min(256, //max number of cores we support - I recognise this is very ambitious, it should probably be lowered to reduce memory contention on the high end once if we can find a suitable test rig.
-	(+localStorage.coreOverride)
-	|| Math.max(//Available cores for _processing,_ at least 1.
-		1, 
-		(navigator.hardwareConcurrency || defaultHardwareConcurrency) - reservedCores
-	)
+const availableCores = Math.min(
+	world.workerStatuses.length, //max number of cores we support - I recognise this is very ambitious, it should probably be lowered to reduce memory contention on the high end once if we can find a suitable test rig.
+	(+localStorage.coreOverride) ||
+		Math.max(//Available cores for _processing,_ at least 1.
+			1, 
+			(navigator.hardwareConcurrency || defaultHardwareConcurrency) - reservedCores
+		)
 );
 
 world.wrappingBehaviour.fill(1) //0 is air, 1 is wall, etc. Default to wall.
@@ -115,8 +116,11 @@ if (localStorage.devMode) {
 {
 	//Flip the colours of the particles to the canvas.
 	const context = canvas.getContext('2d')
-	let buffer = new Uint8ClampedArray(0)
-	let bufferView = new Uint32Array(0)
+	
+	//We need a non-shared buffer to write to the canvas.
+	let rgbaArray = new Uint8ClampedArray(0) //r,g,b,a, r,g,b,a, …
+	let rgbaArrayWordView = new Uint32Array(rgbaArray.buffer) //rgba, rgba, …
+	
 	requestAnimationFrame(function drawFrame() {
 		const [x1, y1, x2, y2] = world.simulationWindow
 		
@@ -126,26 +130,53 @@ if (localStorage.devMode) {
 		//Try to avoid GC pressure by reusing the output buffer.
 		//The buffer for an ImageData must be exactly the right length.
 		const requiredBufferByteLength = 4 * outputWidth * outputHeight
-		if (buffer.byteLength != requiredBufferByteLength) {
-			buffer = new Uint8ClampedArray(requiredBufferByteLength)
-			bufferView = new Uint32Array(buffer.buffer)
+		if (rgbaArray.byteLength != requiredBufferByteLength) {
+			rgbaArray = new Uint8ClampedArray(requiredBufferByteLength)
+			rgbaArrayWordView = new Uint32Array(rgbaArray.buffer)
 		}
 		
 		//For each line of the simulation, copy the colours to a contiguous rect to draw to canvas.
 		//Visually: data:image/gif;base64,R0lGODdhJQARAIABAAAAAP///ywAAAAAJQARAAACTIyPqcsGD6N8rQZgEc5rc89px6SA2gQ54cWYo+pIpaiSm9uYdwtfcoKx+SKs4gfYQxozIE9QtgvhlrRpp4WiUCtWS1e5GmWz4bI5UQAAOw==
-		const worldLineStart = (y1 * maxWorldSize.x) + x1
+		const viewOffset = (y1 * maxWorldSize.x) + x1
 		
-		// Do a bulk copy if we can.
-		bufferView.set(
-			world.colours.subarray(worldLineStart, worldLineStart+(outputWidth*outputHeight))
-		)
-		
-		if (altHeld) debugger;
+		//Bulk copy the colours over for display.
 		//The buffer for an ImageData must be a Uint8ClampedArray with non-shared backing storage.
-		context.putImageData(new ImageData(buffer, outputWidth, outputHeight), 0, 0)
+		//So we copy the shared Uint32Array colours to the Uint8ClampedArray's backing storage through the view.
+		rgbaArrayWordView.set(world.colours.subarray(viewOffset, viewOffset+(outputWidth*outputHeight)))
+		context.putImageData(new ImageData(rgbaArray, outputWidth, outputHeight), 0, 0)
 		
 		//I'm not sure about the placement of this RAF - should we kick off rendering at the end of the current frame and draw it immediately on the next, as opposed to kicking off the render and hoping it returns before the next frame? I think we could also put it in the web-worker, but that wouldn't really help us here. The advantage to the current way is that if an error is encountered, then we stop rendering so we can debug the error.
 		requestAnimationFrame(drawFrame)
+	})
+}
+
+{
+	//Show which (if any) workers are still running.
+	const canvasSelector = `#stardust-game canvas[workerStatus]`
+	const canvas = $(canvasSelector)
+	const context = canvas.getContext('2d')
+	const rgbaArray = new Uint8ClampedArray(4 * canvas.height * canvas.width) //a,b,g,r, a,b,g,r, …
+	const rgbaArrayWordView = new Uint32Array(rgbaArray.buffer) //abgr, abgr, …
+	const colour = Object.freeze({
+		__proto__: null,
+		notWorking: 0x55BB55,
+		working: 0x55DDDD,
+	})
+	
+	canvas.setAttribute('title', `Simulating using ${availableCores}/${navigator.hardwareConcurrency || defaultHardwareConcurrency} CPU cores.`);
+	canvas.textContent = canvas.getAttribute('title')
+	
+	console.assert(
+		rgbaArrayWordView.length >= world.workerStatuses.length,
+		`${canvasSelector} not large enough to show all workers.`
+	)
+	
+	requestAnimationFrame(function readOutWorkerStatuses() {
+		for (let i = 0; i < world.totalWorkers; i++) {
+			rgbaArrayWordView[i] = 0xFF000000 | (colour.notWorking + (world.workerStatuses[i] * (colour.working - colour.notWorking)))
+		}
+		context.putImageData(new ImageData(rgbaArray, canvas.height, canvas.width), 0, 0)
+		requestAnimationFrame(readOutWorkerStatuses)
 	})
 }
 

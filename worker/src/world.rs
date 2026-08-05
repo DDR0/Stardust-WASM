@@ -1,4 +1,4 @@
-use core::sync::atomic::AtomicI32;
+use core::sync::atomic::{AtomicI32, AtomicU8, AtomicU32, AtomicU64};
 
 //Define the shared world structure. Make sure JS defines this the same way! [1CLsom]
 const WORLD_MAX_WIDTH: usize = 3840;
@@ -17,15 +17,15 @@ pub struct World {
 	
 	//Particle attribute arrays.
 	pub locks:        [AtomicI32; TOTAL_PIXELS], //Is this particle locked for processing? 0=no, >0 = logic worker, -1 = main thread, -2 = render worker. Under the WASM shared memory model, atomic reads/writes use I believe "AcqRel" semantics, that is, acting as an MFENCE for all previous writes. We use this to lock all particles we're processing, muck around with faster reads/writes, then release and have everything synced. Both reading and writing will take a lock, so uncached writes *should* never be observed by another worker.
-	pub types:        [u8       ; TOTAL_PIXELS],
-	pub ticks:        [u8       ; TOTAL_PIXELS], //Used for is_new_tick. Stores whether last tick processed was even or odd. If this doesn't match the current tick, we know to advance the particle simulation one step.
-	pub stages:       [u8       ; TOTAL_PIXELS], //Particle processing step. Usually 0 = hasn't moved yet, 1 = can't move, >2 = done.
-	pub colours:      [u32      ; TOTAL_PIXELS], //This is copied directly to canvas.
-	pub velocity_xs:  [f32      ; TOTAL_PIXELS],
-	pub velocity_ys:  [f32      ; TOTAL_PIXELS],
-	pub subpixel_xs:  [f32      ; TOTAL_PIXELS], //Position comes in through x/y coordinate on screen, but this does not capture subpixel position for slow-moving particles.
-	pub subpixel_ys:  [f32      ; TOTAL_PIXELS],
-	pub temperatures: [f32      ; TOTAL_PIXELS], //°C
-	pub scratch_a:    [u64      ; TOTAL_PIXELS], //internal state for the particle
-	pub scratch_b:    [u64      ; TOTAL_PIXELS],
+	pub types:        [AtomicU8 ; TOTAL_PIXELS],
+	pub ticks:        [AtomicU8 ; TOTAL_PIXELS], //Used for is_new_tick. Stores whether last tick processed was even or odd. If this doesn't match the current tick, we know to advance the particle simulation one step.
+	pub stages:       [AtomicU8 ; TOTAL_PIXELS], //Particle processing step. Usually 0 = hasn't moved yet, 1 = can't move, >2 = done.
+	pub colours:      [AtomicU32; TOTAL_PIXELS], //This is copied directly to canvas.
+	pub velocity_xs:  [AtomicU32; TOTAL_PIXELS], //Used as f32.
+	pub velocity_ys:  [AtomicU32; TOTAL_PIXELS], //Used as f32.
+	pub subpixel_xs:  [AtomicU32; TOTAL_PIXELS], //Used as f32. Position comes in through x/y coordinate on screen, but this does not capture subpixel position for slow-moving particles.
+	pub subpixel_ys:  [AtomicU32; TOTAL_PIXELS], //Used as f32.
+	pub temperatures: [AtomicU32; TOTAL_PIXELS], //Used as f32. °C
+	pub scratch_a:    [AtomicU64; TOTAL_PIXELS], //internal state for the particle
+	pub scratch_b:    [AtomicU64; TOTAL_PIXELS],
 }

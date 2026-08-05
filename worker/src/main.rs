@@ -1,16 +1,17 @@
 #![no_main]
 #![no_std]
 
+mod world;
+mod particle;
+
 use core::panic::PanicInfo;
 use core::ptr;
 use core::sync::atomic::Ordering;
 use core::cmp;
 
-mod world;
 use world::World;
 
-mod particle;
-use particle::ParticleLock;
+use particle::Particle;
  
 mod js {
 	#[link(wasm_import_module = "imports")]
@@ -69,12 +70,11 @@ pub unsafe extern "C" fn run(worker_id: i32) {
 	//_log_num(chunk_start as usize);
 	//_log_num(chunk_end as usize);
 	
-	let try_acquire = |index| ParticleLock::try_acquire(world, worker_id, index);
+	let try_acquire = |index| Particle::try_acquire(world, worker_id, index);
 	
 	for index in chunk_start as usize .. chunk_end as usize {
-		if let Some(lock) = try_acquire(index) {
-			let particle = lock.particle();
-			// some stuff with particle
+		if let Some(_particle) = try_acquire(index) {
+			// some stuff with the particle involving other particles
 		}
 	}
 	

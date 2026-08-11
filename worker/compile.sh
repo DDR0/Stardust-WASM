@@ -22,14 +22,19 @@ elif [[ $1 == *init ]]; then
 	exit 0
 fi
 
+if [[ $1 == *release ]]; then
+	cargo build --target=wasm32-unknown-unknown -Zbuild-std --profile release
+	exit 0
+fi
+
 if command -v entr > /dev/null
 then
 	echo Watching *.rs for changes.
 	printf '%s\n' src/*.rs | entr -ccs "
-		cargo build --target=wasm32-unknown-unknown -Zbuild-std
+		cargo build --target=wasm32-unknown-unknown -Zbuild-std --profile dev
 		cp target/wasm32-unknown-unknown/debug/stardust-worker.wasm sim.wasm
 	"
 else
-	cargo build --target=wasm32-unknown-unknown -Zbuild-std
+	cargo build --target=wasm32-unknown-unknown -Zbuild-std --profile dev
 	cp target/wasm32-unknown-unknown/debug/stardust-worker.wasm sim.wasm
 fi

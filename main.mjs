@@ -159,8 +159,9 @@ if (localStorage.devMode) {
 	const rgbaArrayWordView = new Uint32Array(rgbaArray.buffer) //abgr, abgr, …
 	const colour = Object.freeze({
 		__proto__: null,
-		notWorking: 0x55BB55,
-		working: 0x55DDDD,
+		notWorking: 0xFF55BB55,
+		working: 0xFF55DDDD,
+		unavailable: 0x44000020,
 	})
 	
 	canvas.setAttribute('title', `Simulating using ${availableCores}/${navigator.hardwareConcurrency || defaultHardwareConcurrency} CPU cores.`);
@@ -171,9 +172,13 @@ if (localStorage.devMode) {
 		`${canvasSelector} not large enough to show all workers.`
 	)
 	
+	for (let i = world.workerStatuses.length; i < rgbaArrayWordView.length; i++) {
+		rgbaArrayWordView[i] = colour.unavailable
+	}
+	
 	requestAnimationFrame(function readOutWorkerStatuses() {
 		for (let i = 0; i < world.totalWorkers; i++) {
-			rgbaArrayWordView[i] = 0xFF000000 | (colour.notWorking + (world.workerStatuses[i] * (colour.working - colour.notWorking)))
+			rgbaArrayWordView[i] = colour.notWorking + world.workerStatuses[i] * (colour.working - colour.notWorking)
 		}
 		context.putImageData(new ImageData(rgbaArray, canvas.height, canvas.width), 0, 0)
 		requestAnimationFrame(readOutWorkerStatuses)

@@ -152,17 +152,18 @@ if (localStorage.devMode) {
 
 {
 	//Show which (if any) workers are still running.
-	const canvasSelector = `#stardust-game canvas[workerStatus]`
-	const canvas = $(canvasSelector)
-	const context = canvas.getContext('2d')
-	const rgbaArray = new Uint8ClampedArray(4 * canvas.height * canvas.width) //a,b,g,r, a,b,g,r, …
-	const rgbaArrayWordView = new Uint32Array(rgbaArray.buffer) //abgr, abgr, …
 	const colour = Object.freeze({
 		__proto__: null,
 		notWorking: 0xFF55BB55,
 		working: 0xFF55DDDD,
 		unavailable: 0x44000020,
 	})
+	
+	const canvasSelector = `#stardust-game canvas[workerStatus]`
+	const canvas = $(canvasSelector)
+	const context = canvas.getContext('2d')
+	const rgbaArray = new Uint8ClampedArray(4 * canvas.height * canvas.width) //a,b,g,r, a,b,g,r, …
+	const rgbaArrayWordView = new Uint32Array(rgbaArray.buffer) //abgr, abgr, …
 	
 	canvas.setAttribute('title', `Simulating using ${availableCores}/${navigator.hardwareConcurrency || defaultHardwareConcurrency} CPU cores.`);
 	canvas.textContent = canvas.getAttribute('title')

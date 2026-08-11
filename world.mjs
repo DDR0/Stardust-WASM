@@ -3,7 +3,7 @@
 //4k resolution, probably no sense reserving more memory than that especially given we expect to scale up our pixels. (Tch - just another example of a website author making something that caps out at their screen resolution. 🙄)
 export const maxWorldSize = Object.freeze({ x: 3840, y: 2160 })
 const totalPixels = maxWorldSize.x * maxWorldSize.y
-const wasmMemoryStartingByte = 1200000 //Try to allocate somewhere above heap and stack. We can probably reduce this quite a bit if we can find the right config flags.
+const wasmMemoryStartingByte = 150000000 //Try to allocate somewhere above heap and stack. We can probably reduce this quite a bit if we can find the right config flags.
 
 
 ///////////////////////////////////////

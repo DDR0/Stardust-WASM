@@ -1,6 +1,6 @@
 const wasmSource = fetch("sim.wasm")
 
-const wasmMemoryStartingByte = 1200000
+const wasmMemoryStartingByte = 150000000
 
 const assert = (condition, message) => {
 	class AssertionError extends Error { name = "AssertionError" }
@@ -80,6 +80,8 @@ self.start = async (workerID, worldBackingBuffer, world) => {
 	const tlsSize = align(sim.__tls_size.value) //0 here (no #[thread_local]s), but honour it for correctness.
 	const blockSize = tlsSize + STACK_SIZE
 	const blockBase = REGION_BASE + workerIndex * blockSize
+	
+	console.assert(REGION_BASE + 256 * blockSize < wasmMemoryStartingByte, `Insufficient memory allocated before World structure. (${REGION_BASE + 256 * blockSize} ≥ ${wasmMemoryStartingByte})`)
 
 	//TLS sits at the bottom of the block; the shadow stack occupies the rest and grows down from the top.
 	//Set the private shadow stack FIRST, before any wasm call (including TLS init), so the

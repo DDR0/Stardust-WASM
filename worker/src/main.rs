@@ -33,13 +33,10 @@ enum WorkerStates {
 }
 
 #[inline]
-fn get_world() -> &'static mut World {
-	const WASM_MEMORY_STARTING_BYTE: usize = 1200000;
-	const WORLD_POINTER: *mut World = WASM_MEMORY_STARTING_BYTE as *mut World;
+const fn get_world() -> &'static World {
+	const WASM_MEMORY_STARTING_BYTE: usize = 150000000;
 	unsafe {
-		&mut *WORLD_POINTER //Too short? Is this fine?
-		//WORLD_POINTER.as_mut().expect("Failed to create pointer. (This should never happen.)") also works.
-		//ptr::read(WASM_MEMORY_STARTING_BYTE as *const &mut World) doesn't work, returns *0.
+		&*(WASM_MEMORY_STARTING_BYTE as *const World)
 	}
 }
 
@@ -57,7 +54,9 @@ pub unsafe extern "C" fn run(worker_id: i32) {
 	world.worker_statuses[worker_index as usize]
 		.store(WorkerStates::Running as i32, Ordering::Release);
 	
-	let total_pixels = (world.simulation_window[2] - world.simulation_window[0]) * (world.simulation_window[3] - world.simulation_window[0]);
+	let world_width = world.simulation_window[2] - world.simulation_window[0];
+	let world_height = world.simulation_window[3] - world.simulation_window[1];
+	let total_pixels = world_width * world_height;
 	
 	let mut chunk_size = total_pixels / world.total_workers;
 	if chunk_size * world.total_workers < total_pixels {
@@ -67,22 +66,41 @@ pub unsafe extern "C" fn run(worker_id: i32) {
 	
 	let chunk_start = chunk_size*(worker_index);
 	let chunk_end = cmp::min(chunk_start + chunk_size, total_pixels); //Total pixels may not divide evenly into number of worker cores.
+		
+	let try_acquire = |x: u32, y: u32| Particle::try_acquire(
+		&world, 
+		worker_id, 
+		(world.simulation_window[0] + x + ((world.simulation_window[1] + y) * world_width)) as usize
+	);
 	
-	process_particles(worker_id, chunk_start as usize, chunk_end as usize);
+	for index in chunk_start .. chunk_end {
+		let (x, y) = i_to_xy(index as usize);
+		process_particle(x, y, try_acquire)
+	}
 	
 	world.worker_statuses[worker_index as usize]
 		.store(WorkerStates::Idle as i32, Ordering::Release);
 }
 
-fn process_particles(worker_id: i32, chunk_start: usize, chunk_end: usize) {
+fn process_particle<ParticleGetter: Fn(u32, u32) -> Option<Particle<'static>>>(x: u32, y: u32, try_acquire: ParticleGetter) {
 	let world = get_world();
-	let try_acquire = |index| Particle::try_acquire(world, worker_id, index);
-	
-	for index in chunk_start .. chunk_end {
-		if let Some(_particle) = try_acquire(index) {
-			// some stuff with the particle involving other particles
-		}
-	}
+}
+
+/// x/y coordinates to world index
+fn xy_to_i(x: u32, y: u32) -> usize {
+	let world = get_world();
+	let world_width = world.simulation_window[2] - world.simulation_window[0];
+	(world.simulation_window[0] + x + ((world.simulation_window[1] + y) * world_width)) as usize
+}
+
+/// world index to x/y coordinates
+fn i_to_xy(i: usize) -> (u32, u32) {
+	let world = get_world();
+	let world_width = world.simulation_window[2] - world.simulation_window[0];
+	(
+		(((i - world.simulation_window[0] as usize) % world_width as usize) as u32),
+		(((i - world.simulation_window[1] as usize) / world_width as usize) - world.simulation_window[1] as usize) as u32,
+	)
 }
 
 #[panic_handler]

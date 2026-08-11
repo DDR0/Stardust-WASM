@@ -15,7 +15,7 @@ use particle::Particle;
  
 mod js {
 	#[link(wasm_import_module = "imports")]
-	extern "C" {
+	unsafe extern "C" {
 		pub fn abort(msgPtr: usize, filePtr: usize, line: u32, column: u32) -> !;
 		pub fn _log_num(number: usize);
 		pub fn _wait_for(addr: u32, toHaveVal: i32);
@@ -43,7 +43,7 @@ fn get_world() -> &'static mut World {
 	}
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn run(worker_id: i32) {
 	debug_assert!(worker_id >= 1, "Bad worker_id passed in, too small.");
 	let worker_index = worker_id as u32 - 1;
@@ -67,31 +67,36 @@ pub unsafe extern "C" fn run(worker_id: i32) {
 	
 	let chunk_start = chunk_size*(worker_index);
 	let chunk_end = cmp::min(chunk_start + chunk_size, total_pixels); //Total pixels may not divide evenly into number of worker cores.
-	//_log_num(chunk_start as usize);
-	//_log_num(chunk_end as usize);
 	
-	let try_acquire = |index| Particle::try_acquire(world, worker_id, index);
-	
-	for index in chunk_start as usize .. chunk_end as usize {
-		if let Some(_particle) = try_acquire(index) {
-			// some stuff with the particle involving other particles
-		}
-	}
+	process_particles(worker_id, chunk_start as usize, chunk_end as usize);
 	
 	world.worker_statuses[worker_index as usize]
 		.store(WorkerStates::Idle as i32, Ordering::Release);
 }
 
+fn process_particles(worker_id: i32, chunk_start: usize, chunk_end: usize) {
+	let world = get_world();
+	let try_acquire = |index| Particle::try_acquire(world, worker_id, index);
+	
+	for index in chunk_start .. chunk_end {
+		if let Some(_particle) = try_acquire(index) {
+			// some stuff with the particle involving other particles
+		}
+	}
+}
+
 #[panic_handler]
 unsafe fn panic(info: &PanicInfo) -> ! {
-	if let Some(location) = info.location() { //`info.location` is always None.
-		abort(
-			info.message().as_str().unwrap_or("unknown panic") as *const str as *const () as usize,
-			ptr::addr_of!(*location.file()) as *const() as usize,
-			location.line(),
-			location.column()
-		);
-	} else {
-		abort(0, 0, 0, 0)
+	unsafe {
+		if let Some(location) = info.location() { //`info.location` is always None.
+			abort(
+				info.message().as_str().unwrap_or("unknown panic") as *const str as *const () as usize,
+				ptr::addr_of!(*location.file()) as *const() as usize,
+				location.line(),
+				location.column()
+			);
+		} else {
+			abort(0, 0, 0, 0)
+		}
 	}
 }

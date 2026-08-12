@@ -19,6 +19,8 @@ elif [[ $1 == *init ]]; then
 	rustup toolchain install nightly
 	rustup override set nightly
 	rustup component add rust-src --toolchain nightly
+	cargo install cargo-wasm2map
+	
 	#Set up auto-devtools for Chrome so it stops complaining it can't find the URL.
 	mkdir -p mkdir -p .well-known/appspecific
 	echo "{\n\t\"workspace\": {\n\t\t\"root\": \"${PWD}\",\n\t\t\"uuid\": \"`uuidgen`\"\n\t}\n}" > .well-known/appspecific/com.chrome.devtools.json
@@ -35,7 +37,10 @@ then
 	echo Watching *.rs for changes.
 	printf '%s\n' src/*.rs | entr -ccs "
 		cargo build --target=wasm32-unknown-unknown -Zbuild-std --profile dev
+		cargo wasm2map target/wasm32-unknown-unknown/debug/stardust-worker.wasm \
+			--patch --base-url /worker
 		cp target/wasm32-unknown-unknown/debug/stardust-worker.wasm sim.wasm
+		cp target/wasm32-unknown-unknown/debug/stardust-worker.wasm.map sim.wasm.map
 	"
 else
 	cargo build --target=wasm32-unknown-unknown -Zbuild-std --profile dev

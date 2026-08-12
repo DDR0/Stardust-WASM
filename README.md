@@ -32,6 +32,12 @@ Optionally, to rebuild the simulation core with Rust, you'll also need to:
 2. In the worker directory, run `./compile.sh init`. This will set up "nightly" Rust, which we need to build our WASM with imported shared memory.
 3. Run `./compile.sh`.
 
+How To Debug
+------------
+
+JS is as usual. We don't do anything fancy there.
+Rust is a bit harder. You can specify the source map to use, and Chrome will ... not make any use of the built-in DWARF debugging info, it seems. Not even with the [C/C++ DevTools Support (DWARF) plugin](https://chromewebstore.google.com/detail/cc++-devtools-support-dwa/pdcpmagijalfljmkmjngeonclgbbannb).
+
 ## Stardust Options
 
 - `localStorage.devMode = true`: Expose `world` in the global context, for debugging. (May affect other dev-y options too.)

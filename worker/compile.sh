@@ -19,6 +19,9 @@ elif [[ $1 == *init ]]; then
 	rustup toolchain install nightly
 	rustup override set nightly
 	rustup component add rust-src --toolchain nightly
+	#Set up auto-devtools for Chrome so it stops complaining it can't find the URL.
+	mkdir -p mkdir -p .well-known/appspecific
+	echo "{\n\t\"workspace\": {\n\t\t\"root\": \"${PWD}\",\n\t\t\"uuid\": \"`uuidgen`\"\n\t}\n}" > .well-known/appspecific/com.chrome.devtools.json
 	exit 0
 fi
 

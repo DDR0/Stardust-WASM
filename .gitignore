@@ -3,5 +3,6 @@ crate-wasm/pkg
 wasm-pack.log
 node_modules
 dist
+.well-known/appspecific/com.chrome.devtools.json
 *.wat
 *.sublime-*

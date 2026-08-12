@@ -22,7 +22,7 @@ elif [[ $1 == *init ]]; then
 	cargo install cargo-wasm2map
 	
 	#Set up auto-devtools for Chrome so it stops complaining it can't find the URL.
-	mkdir -p mkdir -p .well-known/appspecific
+	mkdir -p .well-known/appspecific
 	echo "{\n\t\"workspace\": {\n\t\t\"root\": \"${PWD}\",\n\t\t\"uuid\": \"`uuidgen`\"\n\t}\n}" > .well-known/appspecific/com.chrome.devtools.json
 	exit 0
 fi

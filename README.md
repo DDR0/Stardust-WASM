@@ -36,7 +36,8 @@ How To Debug
 ------------
 
 JS is as usual. We don't do anything fancy there.
-Rust is a bit harder. You can specify the source map to use, and Chrome will ... not make any use of the built-in DWARF debugging info, it seems. Not even with the [C/C++ DevTools Support (DWARF) plugin](https://chromewebstore.google.com/detail/cc++-devtools-support-dwa/pdcpmagijalfljmkmjngeonclgbbannb).
+
+For Rust, install the [C/C++ DevTools Support (DWARF) plugin](https://chromewebstore.google.com/detail/cc++-devtools-support-dwa/pdcpmagijalfljmkmjngeonclgbbannb) for Chrome. Firefox does not support WASM debugging, only telling you the entry and exit points into the binary.
 
 ## Stardust Options
 

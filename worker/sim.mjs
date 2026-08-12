@@ -10,14 +10,14 @@ const assert = (condition, message) => {
 
 //Extract a utf-8 string from WASM memory, converting it to a utf-16 Javascript String.
 //Very much not zero-copy.
-const stringFromMem = (mem, index) =>
+const stringFromMem = (mem, index, len=null) =>
 	index //usually around 1053656
 		? new TextDecoder('utf-8').decode(
 			//Copy shared memory out to an unshared array for TextDecoder.
 			//Warning: Racy. Time of check for trailing null != time of copy.
 			new Uint8Array(mem.buffer).slice(
 				index,
-				index + new Uint8Array(mem.buffer, index).indexOf(0), //Doubly stupid because we're converting Rust non-null-terminated strings to this. (I blame C.)
+				index + (len??new Uint8Array(mem.buffer, index).indexOf(0)),
 			)
 		)
 		: "«null»"
@@ -47,10 +47,10 @@ self.start = async (workerID, worldBackingBuffer, world) => {
 			memory: worldBackingBuffer,
 		},
 		imports: {
-			abort: (messagePtr, locationPtr, row, column) => {
-				const location = stringFromMem(worldBackingBuffer, locationPtr)
-				const message  = stringFromMem(worldBackingBuffer, messagePtr )
-				throw new Error(`${message} (${location}:${row}:${column}, thread ${workerID})`)
+			abort: (messagePtr, messageLen, fileNamePtr, fileNameLen, row, column) => {
+				const location = stringFromMem(worldBackingBuffer, fileNamePtr, fileNameLen)
+				const message  = stringFromMem(worldBackingBuffer, messagePtr, messageLen)
+				throw new Error(`${message} (from /worker/${location}:${row}:${column})`)
 			},
 			_log_num: num => console.log(`sim ${workerID}: number ${num}`),
 			
@@ -102,7 +102,7 @@ self.start = async (workerID, worldBackingBuffer, world) => {
 		try {
 			sim.run(workerID)
 		} catch (e) {
-			console.error(`core ${workerID}`, e)
+			console.error(`Core ${workerID}:`, e)
 			debugger;
 			break;
 		}

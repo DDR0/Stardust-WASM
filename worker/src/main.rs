@@ -5,7 +5,6 @@ mod world;
 mod particle;
 
 use core::panic::PanicInfo;
-use core::ptr;
 use core::sync::atomic::Ordering;
 use core::cmp;
 
@@ -16,7 +15,7 @@ use particle::Particle;
 mod js {
 	#[link(wasm_import_module = "imports")]
 	unsafe extern "C" {
-		pub fn abort(msgPtr: usize, filePtr: usize, line: u32, column: u32) -> !;
+		pub fn abort(msgPtr: usize, msgLen: usize, filePtr: usize, fileLen: usize, line: u32, column: u32) -> !;
 		pub fn _log_num(number: usize);
 		pub fn _wait_for(addr: u32, toHaveVal: i32);
 	}
@@ -106,15 +105,20 @@ fn i_to_xy(i: usize) -> (u32, u32) {
 #[panic_handler]
 unsafe fn panic(info: &PanicInfo) -> ! {
 	unsafe {
-		if let Some(location) = info.location() { //`info.location` is always None.
+		if let Some(location) = info.location() {
+			// Does not support formatted panics right now.
+			let message = info.message().as_str().unwrap_or("«unknown panic»");
+			let file = location.file();
 			abort(
-				info.message().as_str().unwrap_or("unknown panic") as *const str as *const () as usize,
-				ptr::addr_of!(*location.file()) as *const() as usize,
+				message.as_ptr() as usize,
+				message.len(),
+				file.as_ptr() as usize,
+				file.len(),
 				location.line(),
 				location.column()
 			);
 		} else {
-			abort(0, 0, 0, 0)
+			abort(0, 0, 0, 0, 0, 0)
 		}
 	}
 }

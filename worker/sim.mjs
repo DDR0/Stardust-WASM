@@ -42,6 +42,15 @@ self.start = async (workerID, worldBackingBuffer, world) => {
 	
 	const i32View = new Int32Array(worldBackingBuffer.buffer)
 	
+	let logLineBuffer = `sim ${workerID}: `
+	const buffer = (target, ptr, len) => {
+		const str = stringFromMem(worldBackingBuffer, ptr, len);
+		if (str === '\n') {
+			target(logLineBuffer)
+			logLineBuffer = `sim ${workerID}: `
+		} else logLineBuffer += str
+	}
+	
 	const wasm = await WebAssembly.instantiateStreaming(wasmSource, {
 		env: {
 			memory: worldBackingBuffer,
@@ -53,13 +62,13 @@ self.start = async (workerID, worldBackingBuffer, world) => {
 				throw new Error(`${message} (from /worker/${location}:${row}:${column})`)
 			},
 			
-			_log_num: num => console.log(`sim ${workerID}: number ${num}`),
-			_log_info: (ptr, len) => console.info(`sim ${workerID}: ${stringFromMem(worldBackingBuffer, ptr, len)}`),
-			_log_str: (ptr, len) => console.log(`sim ${workerID}: ${stringFromMem(worldBackingBuffer, ptr, len)}`),
-			_log_err: (ptr, len) => console.error(`sim ${workerID}: ${stringFromMem(worldBackingBuffer, ptr, len)}`),
+			log_num: num => console.log(`sim ${workerID}: number ${num}`),
+			log_info: (ptr, len) => buffer(console.info,  ptr, len),
+			log_str:  (ptr, len) => buffer(console.log,   ptr, len),
+			log_err:  (ptr, len) => buffer(console.error, ptr, len),
 			
 			//Opposite of wait - waits for a value to be equal, vs not-equal.
-			_wait_for: (ptr, value) => {
+			wait_for: (ptr, value) => {
 				while (true) {
 					const stored = Atomics.load(i32View, ptr / i32View.BYTES_PER_ELEMENT)
 					if (stored == value) return

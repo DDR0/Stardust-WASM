@@ -111,7 +111,7 @@ self.start = async (workerID, worldBackingBuffer, world) => {
 			break;
 		}
 		
-		console.info(`${workerID}: wasm time: ${(now()-wasmTime).toFixed(2)}ms`)
+		//console.info(`${workerID}: wasm time: ${(now()-wasmTime).toFixed(2)}ms`)
 	}
 	
 }

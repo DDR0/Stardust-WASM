@@ -90,7 +90,7 @@ const simulate = (()=>{
 	return Object.freeze({
 		tick: () => {
 			if (workersAreRunning()) {
-				console.info('dropped frame')
+				//console.info('dropped frame')
 				return 0
 			} else {
 				//console.info('incremented frame')
@@ -243,12 +243,12 @@ function createParticle(x,y, options) {
 	const [x1, y1, x2, y2] = world.simulationWindow
 	const i = ((y1 + y) * (x2-x1)) + x1 + x
 	
-	console.log('creating', x, y, options)
+	//console.log('creating', x, y, options)
 	
 	if (Atomics.compareExchange(world.locks, i, 0, -1)) return
 	
 	world.types[i] = options.type ?? 1
-	world.ticks[i] = world.globalTick % 2
+	world.ticks[i] = world.globalTick % 256
 	world.stages[i] = options.stage ?? 0
 	world.colours[i] = options.colour ?? 0
 	world.velocityXs[i] = options.velocityX ?? 0
@@ -261,14 +261,14 @@ function createParticle(x,y, options) {
 	
 	Atomics.store(world.locks, i, 0)
 	
-	console.log('done')
+	//console.log('done')
 }
 
 function setParticle(x,y, options) {
 	const [x1, y1, x2, y2] = world.simulationWindow
 	const i = ((y1 + y) * (x2-x1)) + x1 + x
 	
-	console.log('setting', x, y, options)
+	//console.log('setting', x, y, options)
 	
 	if (Atomics.compareExchange(world.locks, i, 0, -1)) return
 	
@@ -286,7 +286,7 @@ function setParticle(x,y, options) {
 	
 	Atomics.store(world.locks, i, 0)
 	
-	console.log('done')
+	//console.log('done')
 }
 
 console.info('Main thread loaded.')

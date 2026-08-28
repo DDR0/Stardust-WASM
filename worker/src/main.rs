@@ -156,6 +156,7 @@ fn process_particle<ParticleGetter: Fn(i32, i32) -> Option<ParticleEnum<'static>
 	let world = get_world();
 	let global_tick = world.global_tick.load(Ordering::Relaxed);
 	let local_tick = global_tick as u8;
+	
 	if let Some(primary) = try_acquire(x,y) {
 		if primary.tick() == local_tick { return; } //Already processed but moved.
 		match primary.r#type() {
@@ -173,11 +174,12 @@ fn process_particle<ParticleGetter: Fn(i32, i32) -> Option<ParticleEnum<'static>
 					if let Some(target) = try_acquire(x+directions, y+1) {
 						if target.r#type() == 0 { //TODO: Maybe something more general than type? Weight?
 							primary.swap(target);
+							//js::log(format_args!("local tick: {} → {}", primary.tick(), local_tick));
+							target.set_tick(local_tick);
 							break;
 						}
 					}
 				}
-				primary.set_tick(local_tick);
 			},
 			_ => panic!("unknown particle type")
 		}	

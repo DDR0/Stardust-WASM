@@ -1,6 +1,7 @@
 #![no_main]
 #![no_std]
 
+mod prng;
 mod world;
 mod particle;
 
@@ -9,8 +10,8 @@ use core::sync::atomic::Ordering;
 use core::cmp;
 
 use world::World;
-
-use particle::Particle;
+use particle::{Particle, InertParticle, ParticleTrait, ParticleEnum};
+use prng::prng;
  
 mod js {
 	#[link(wasm_import_module = "imports")]
@@ -22,6 +23,10 @@ mod js {
 		pub fn _log_err(ptr: usize, len: usize);
 		pub fn _wait_for(addr: u32, toHaveVal: i32);
 	}
+	
+	fn _info(msg: &str) { unsafe { _log_info(msg.as_ptr() as usize, msg.len()) } }
+	fn _log(msg: &str) { unsafe { _log_str(msg.as_ptr() as usize, msg.len()) } }
+	fn _error(msg: &str) { unsafe { _log_err(msg.as_ptr() as usize, msg.len()) } }
 }
 
 use js::*;
@@ -43,7 +48,7 @@ const fn get_world() -> &'static World {
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn run(worker_id: i32) {
+pub extern "C" fn run(worker_id: i32) {
 	debug_assert!(worker_id >= 1, "Bad worker_id passed in, too small.");
 	let worker_index = worker_id as u32 - 1;
 	let world = get_world();
@@ -69,11 +74,31 @@ pub unsafe extern "C" fn run(worker_id: i32) {
 	let chunk_start = chunk_size*(worker_index);
 	let chunk_end = cmp::min(chunk_start + chunk_size, total_pixels); //Total pixels may not divide evenly into number of worker cores.
 		
-	let try_acquire = |x: u32, y: u32| Particle::try_acquire(
-		&world, 
-		worker_id, 
-		(world.simulation_window[0] + x + ((world.simulation_window[1] + y) * world_width)) as usize
-	);
+	let try_acquire = |x: i32, y: i32| {
+		// First, if we're out of bounds, return a dummy particle. Currently expected to be air or wall.
+		if y < 0 {
+			return Some(ParticleEnum::Inert(InertParticle::new(&world, world.wrapping_behaviour[0])))
+		}
+		if x < 0 {
+			return Some(ParticleEnum::Inert(InertParticle::new(&world, world.wrapping_behaviour[3])))
+		}
+		if x as u32 > world_width {
+			return Some(ParticleEnum::Inert(InertParticle::new(&world, world.wrapping_behaviour[1])))
+		}
+		if y as u32 > world_height {
+			return Some(ParticleEnum::Inert(InertParticle::new(&world, world.wrapping_behaviour[2])))
+		}
+		
+		if let Some(particle) = Particle::try_acquire(
+			&world, 
+			worker_id, 
+			(world.simulation_window[0] + x as u32 + ((world.simulation_window[1] + y as u32) * world_width)) as usize
+		) {
+			Some(ParticleEnum::Live(particle))
+		} else {
+			None
+		}
+	};
 	
 	for index in chunk_start .. chunk_end {
 		let (x, y) = i_to_xy(index as usize);
@@ -84,24 +109,54 @@ pub unsafe extern "C" fn run(worker_id: i32) {
 		.store(WorkerStates::Idle as i32, Ordering::Release);
 }
 
-fn process_particle<ParticleGetter: Fn(u32, u32) -> Option<Particle<'static>>>(x: u32, y: u32, try_acquire: ParticleGetter) {
+fn process_particle<ParticleGetter: Fn(i32, i32) -> Option<ParticleEnum<'static>>>(x: i32, y: i32, try_acquire: ParticleGetter) {
 	let world = get_world();
+	let global_tick = world.global_tick.load(Ordering::Relaxed);
+	let local_tick = global_tick as u8;
+	if let Some(primary) = try_acquire(x,y) {
+		if primary.tick() == local_tick { return; } //Already processed but moved.
+		match primary.r#type() {
+			0 | 1 => { return; },
+			2 => {
+				// Choose a sequence of X directions to try moving in before staying still.
+				let directions: [i32; 3] = match prng(x, y, global_tick as u32) {
+					0..3333 =>     [-1,  1,  0],
+					3333..5000 =>  [ 0, -1,  1],
+					5000..6666 =>  [ 0,  1, -1],
+					6666..10000 => [ 1, -1,  0],
+					_ => unreachable!("Bad PRNG return value."),
+				};
+				for directions in directions {
+					if let Some(target) = try_acquire(x+directions, y+1) {
+						if target.r#type() == 0 { //TODO: Maybe something more general than type? Weight?
+							primary.swap(target);
+							break;
+						}
+					}
+				}
+				primary.set_tick(local_tick);
+			},
+			_ => panic!("unknown particle type")
+		}	
+	}
 }
 
 /// x/y coordinates to world index
-fn xy_to_i(x: u32, y: u32) -> usize {
+fn _xy_to_i(x: i32, y: i32) -> usize {
+	let x = u32::try_from(x).expect("x is negative, which is unsupported in xy_to_i.");
+	let y = u32::try_from(y).expect("y is negative, which is unsupported in xy_to_i.");
 	let world = get_world();
 	let world_width = world.simulation_window[2] - world.simulation_window[0];
 	(world.simulation_window[0] + x + ((world.simulation_window[1] + y) * world_width)) as usize
 }
 
 /// world index to x/y coordinates
-fn i_to_xy(i: usize) -> (u32, u32) {
+fn i_to_xy(i: usize) -> (i32, i32) {
 	let world = get_world();
 	let world_width = world.simulation_window[2] - world.simulation_window[0];
 	(
-		(((i - world.simulation_window[0] as usize) % world_width as usize) as u32),
-		(((i - world.simulation_window[1] as usize) / world_width as usize) - world.simulation_window[1] as usize) as u32,
+		(((i - world.simulation_window[0] as usize) % world_width as usize) as i32),
+		(((i - world.simulation_window[1] as usize) / world_width as usize) - world.simulation_window[1] as usize) as i32,
 	)
 }
 

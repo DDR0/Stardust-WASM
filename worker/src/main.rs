@@ -17,6 +17,9 @@ mod js {
 	unsafe extern "C" {
 		pub fn abort(msgPtr: usize, msgLen: usize, filePtr: usize, fileLen: usize, line: u32, column: u32) -> !;
 		pub fn _log_num(number: usize);
+		pub fn _log_info(ptr: usize, len: usize);
+		pub fn _log_str(ptr: usize, len: usize);
+		pub fn _log_err(ptr: usize, len: usize);
 		pub fn _wait_for(addr: u32, toHaveVal: i32);
 	}
 }

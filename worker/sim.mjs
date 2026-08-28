@@ -52,7 +52,11 @@ self.start = async (workerID, worldBackingBuffer, world) => {
 				const message  = stringFromMem(worldBackingBuffer, messagePtr, messageLen)
 				throw new Error(`${message} (from /worker/${location}:${row}:${column})`)
 			},
+			
 			_log_num: num => console.log(`sim ${workerID}: number ${num}`),
+			_log_info: (ptr, len) => console.info(`sim ${workerID}: ${stringFromMem(worldBackingBuffer, ptr, len)}`),
+			_log_str: (ptr, len) => console.log(`sim ${workerID}: ${stringFromMem(worldBackingBuffer, ptr, len)}`),
+			_log_err: (ptr, len) => console.error(`sim ${workerID}: ${stringFromMem(worldBackingBuffer, ptr, len)}`),
 			
 			//Opposite of wait - waits for a value to be equal, vs not-equal.
 			_wait_for: (ptr, value) => {

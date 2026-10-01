@@ -186,13 +186,13 @@ if (localStorage.devMode) {
 	})
 }
 
-const darkenRGBARandomlyByChannel = (colour, maxAmount=16) =>
+const darkenRGBARandomlyByChannel = (colour, maxAmount=32) =>
 	colour - (0
 		| (colour >> 24 & 0xFF > maxAmount && (Math.random()*maxAmount << 24))
 		| (colour >> 16 & 0xFF > maxAmount && (Math.random()*maxAmount << 16))
 		| (colour >>  8 & 0xFF > maxAmount && (Math.random()*maxAmount <<  8))
 	)
-const darkenABGRRandomlyByChannel = (colour, maxAmount=16) =>
+const darkenABGRRandomlyByChannel = (colour, maxAmount=32) =>
 	colour - (0
 		| (colour >> 16 & 0xFF > maxAmount && (Math.random()*maxAmount << 16))
 		| (colour >>  8 & 0xFF > maxAmount && (Math.random()*maxAmount <<  8))

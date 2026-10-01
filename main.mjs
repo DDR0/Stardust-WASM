@@ -105,7 +105,7 @@ const simulate = (()=>{
 		play: () => ticker ||= requestAnimationFrame(loop),  //but don't start twice
 	})
 })()
-simulate.tick()
+simulate.play()
 
 if (localStorage.devMode) {
 	window.simulate = simulate

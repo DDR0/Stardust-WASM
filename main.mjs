@@ -161,7 +161,7 @@ if (localStorage.devMode) {
 	
 	const canvasSelector = `#stardust-game canvas[workerStatus]`
 	const canvas = $(canvasSelector)
-	const context = canvas.getContext('2d')
+	const context = canvas.getContext('2d') //note: Could switch to bitmaprenderer? eg, https://developer.mozilla.org/en-US/docs/Web/API/OffscreenCanvas/getContext
 	const rgbaArray = new Uint8ClampedArray(4 * canvas.height * canvas.width) //a,b,g,r, a,b,g,r, …
 	const rgbaArrayWordView = new Uint32Array(rgbaArray.buffer) //abgr, abgr, …
 	
@@ -186,6 +186,19 @@ if (localStorage.devMode) {
 	})
 }
 
+const darkenRGBARandomlyByChannel = (colour, maxAmount=16) =>
+	colour - (0
+		| (colour >> 24 & 0xFF > maxAmount && (Math.random()*maxAmount << 24))
+		| (colour >> 16 & 0xFF > maxAmount && (Math.random()*maxAmount << 16))
+		| (colour >>  8 & 0xFF > maxAmount && (Math.random()*maxAmount <<  8))
+	)
+const darkenABGRRandomlyByChannel = (colour, maxAmount=16) =>
+	colour - (0
+		| (colour >> 16 & 0xFF > maxAmount && (Math.random()*maxAmount << 16))
+		| (colour >>  8 & 0xFF > maxAmount && (Math.random()*maxAmount <<  8))
+		| (colour >>  0 & 0xFF > maxAmount && (Math.random()*maxAmount <<  0))
+	)
+
 bindDisplayTo($("#stardust-game"), {
 	play: simulate.play,
 	step: simulate.tick,
@@ -200,28 +213,53 @@ bindDisplayTo($("#stardust-game"), {
 		createParticle(x, y, {
 			__proto__: null, 
 			type, 
-			colour: type === 1 ? 0xFF00FFFF : 0xFFFFFF00, //AABBGGRR
+			colour: type === 0 ? 0xFF000000 //AABBGGRR
+				: type === 1 ? darkenABGRRandomlyByChannel(0xFF00FFFF)
+				: type === 2 ? darkenABGRRandomlyByChannel(0xFFFFFF00)
+				: type === 3 ? darkenABGRRandomlyByChannel(0x44FFFFFF)
+				: 0xFF0000FF, //"error red"
 		})
 	},
 	line: (x1, y1, x2, y2, radius, type) => {
-		if (x1 > x2) [x2, x1] = [x1, x2]
-		if (y1 > y2) [y2, y1] = [y1, y2]
-		let x = x1
-		let y = y1
+		//Draw a line.
+		const canvas = new OffscreenCanvas(Math.abs(x1-x2)+radius*2+2, Math.abs(y1-y2)+radius*2+2)
+		const ctx = canvas.getContext("2d", { alpha: false, willReadFrequently: true })
+		ctx.strokeStyle = "red"
+		ctx.lineCap = "round"
+		ctx.lineWidth = radius
+		ctx.moveTo(
+			x1 < x2 ? radius+1 : (x1-x2) + radius+1,
+			y1 < y2 ? radius+1 : (y1-y2) + radius+1)
+		ctx.lineTo(
+			x1 > x2 ? radius+1 : (x2-x1) + radius+1,
+			y1 > y2 ? radius+1 : (y2-y1) + radius+1)
+		ctx.stroke()
+		const stroke = ctx.getImageData(0, 0, canvas.width, canvas.height)
 		
-		for (; x < x2; x++) {
-			createParticle(x, y, {
-				__proto__: null, 
-				type, 
-				colour: type === 1 ? 0xFF00FFFF : 0xFFFFFF00, //AABBGGRR
-			})
-		}
-		for (; y < y2; y++) {
-			createParticle(x, y, {
-				__proto__: null, 
-				type,
-				colour: type === 1 ? 0xFF00FFFF : 0xFFFFFF00, //AABBGGRR
-			})
+		//console.log('line', {x1, y1, x2, y2, canvas, ctx, stroke, sw: world.simulationWindow})
+		
+		//Translate the line into pixels in our world.
+		for (let y = 0; y < stroke.height; y++) {
+			for (let x = 0; x < stroke.width; x++) {
+				if (stroke.data[(y*stroke.width + x) * 4] > 127) {
+					const tx = world.simulationWindow[0] + x1 + x - radius - 1
+					const ty = world.simulationWindow[1] + y1 + y - radius - 1
+					if (true
+						&& tx >= world.simulationWindow[0] && tx < world.simulationWindow[2]
+						&& ty >= world.simulationWindow[1] && ty < world.simulationWindow[3]
+					) {
+						createParticle(tx, ty, {
+							__proto__: null, 
+							type, 
+							colour: type === 0 ? 0xFF000000 //AABBGGRR
+								: type === 1 ? darkenABGRRandomlyByChannel(0xFF00FFFF)
+								: type === 2 ? darkenABGRRandomlyByChannel(0xFFFFFF00)
+								: type === 3 ? darkenABGRRandomlyByChannel(0x44FFFFFF)
+								: 0xFF0000FF, //"error red"
+						})
+					}
+				}
+			}
 		}
 	},
 	rect: (x1, y1, x2, y2, radius, type) => {
@@ -232,7 +270,11 @@ bindDisplayTo($("#stardust-game"), {
 				createParticle(x, y, {
 					__proto__: null, 
 					type, 
-					colour: type === 1 ? 0xFF00FFFF : 0xFFFFFF00, //AABBGGRR
+					colour: type === 0 ? 0xFF000000 //AABBGGRR
+						: type === 1 ? darkenABGRRandomlyByChannel(0xFF00FFFF)
+						: type === 2 ? darkenABGRRandomlyByChannel(0xFFFFFF00)
+						: type === 3 ? darkenABGRRandomlyByChannel(0x44FFFFFF)
+						: 0xFF0000FF, //"error red"
 				})
 			}
 		}

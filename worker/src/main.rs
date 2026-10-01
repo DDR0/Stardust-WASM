@@ -157,7 +157,7 @@ fn process_particle<ParticleGetter: Fn(i32, i32) -> Option<ParticleEnum<'static>
 						}
 					}
 				}
-			}
+			},
 			_ => panic!("unknown particle type")
 		}	
 	}

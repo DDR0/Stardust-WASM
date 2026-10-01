@@ -8,7 +8,7 @@ import { world, maxWorldSize } from './world.mjs'
 //Mutable state.
 let selectedTypeID = 0
 let selectedTool = ""
-let toolRadius = 10 //particles
+let toolRadius = 5 //particles
 
 //Needed for colour picker logic.
 export const setSelectedTool = id => {

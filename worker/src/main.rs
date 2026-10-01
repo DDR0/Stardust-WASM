@@ -2,19 +2,19 @@
 #![no_std]
 
 mod js;
+mod particle;
 mod prng;
 mod world;
-mod particle;
+
 use js::*;
-
-use core::panic::PanicInfo;
-use core::sync::atomic::Ordering;
-use core::cmp;
-
-use world::World;
 use particle::{Particle, InertParticle, ParticleTrait, ParticleEnum};
 use prng::prng;
- 
+use world::World;
+
+use core::cmp;
+use core::panic::PanicInfo;
+use core::sync::atomic::Ordering;
+
 
 #[repr(i32)]
 enum WorkerStates {

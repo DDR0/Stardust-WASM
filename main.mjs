@@ -32,7 +32,7 @@ const $$ = document.querySelectorAll.bind(document);
 const canvas = $("#stardust-game canvas.main")
 
 const defaultHardwareConcurrency = 4;
-const reservedCores = 2; //One for main thread, one for the render thread; the rest are used for processing. This means at minimum we run with 3 threads, even if we're on a single-core CPU.
+const reservedCores = 3; //One for main thread, one for the render thread, one for the OS; the rest are used for processing. This means at minimum we run with 3 threads, even if we're on a single-core CPU.
 //Note: Safari doesn't support hardwareConcurrency as of 2022-06-09.
 const availableCores = Math.min(
 	world.workerStatuses.length, //max number of cores we support - I recognise this is very ambitious, it should probably be lowered to reduce memory contention on the high end once if we can find a suitable test rig.

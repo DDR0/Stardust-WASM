@@ -175,7 +175,7 @@ fn _xy_to_i(x: i32, y: i32) -> usize {
 /// world index to x/y coordinates
 fn i_to_xy(i: usize) -> (i32, i32) {
 	let world = get_world();
-	let world_width = world.simulation_window[2] - world.simulation_window[0];
+	let world_width = cmp::max(1, world.simulation_window[2] - world.simulation_window[0]);
 	(
 		(((i - world.simulation_window[0] as usize) % world_width as usize) as i32),
 		(((i - world.simulation_window[1] as usize) / world_width as usize) - world.simulation_window[1] as usize) as i32,

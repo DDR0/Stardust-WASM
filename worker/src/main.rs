@@ -146,7 +146,7 @@ fn process_particle<ParticleGetter: Fn(i32, i32) -> Option<ParticleEnum<'static>
 						let next_y = y - if iteration == 0 && prng(x, y, global_tick as u32) < 2000 { 1 } else { 0 };
 						if let Some(target) = try_acquire(next_x, next_y) {
 							if target.r#type() == 0 { //TODO: Maybe something more general than type? Weight?
-								primary.swap(&primary);
+								primary.swap(&target);
 								//js::log(format_args!("local tick: {} → {}", primary.tick(), local_tick));
 								target.set_tick(local_tick);
 								primary = target;

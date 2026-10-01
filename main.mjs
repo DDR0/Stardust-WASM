@@ -215,7 +215,7 @@ bindDisplayTo($("#stardust-game"), {
 			type, 
 			colour: type === 0 ? 0xFF000000 //AABBGGRR
 				: type === 1 ? darkenABGRRandomlyByChannel(0xFF00FFFF)
-				: type === 2 ? darkenABGRRandomlyByChannel(0xFFFFFF00)
+				: type === 2 ? darkenABGRRandomlyByChannel(0XFF9AD1E8)
 				: type === 3 ? darkenABGRRandomlyByChannel(0x44FFFFFF)
 				: 0xFF0000FF, //"error red"
 		})
@@ -253,7 +253,7 @@ bindDisplayTo($("#stardust-game"), {
 							type, 
 							colour: type === 0 ? 0xFF000000 //AABBGGRR
 								: type === 1 ? darkenABGRRandomlyByChannel(0xFF00FFFF)
-								: type === 2 ? darkenABGRRandomlyByChannel(0xFFFFFF00)
+								: type === 2 ? (Math.random() < 0.005 ? darkenABGRRandomlyByChannel(0XFF2F100A, 8) : darkenABGRRandomlyByChannel(0XFF9AD1E8, 16)) 
 								: type === 3 ? darkenABGRRandomlyByChannel(0x44FFFFFF)
 								: 0xFF0000FF, //"error red"
 						})
@@ -272,7 +272,7 @@ bindDisplayTo($("#stardust-game"), {
 					type, 
 					colour: type === 0 ? 0xFF000000 //AABBGGRR
 						: type === 1 ? darkenABGRRandomlyByChannel(0xFF00FFFF)
-						: type === 2 ? darkenABGRRandomlyByChannel(0xFFFFFF00)
+						: type === 2 ? darkenABGRRandomlyByChannel(0XFF9AD1E8)
 						: type === 3 ? darkenABGRRandomlyByChannel(0x44FFFFFF)
 						: 0xFF0000FF, //"error red"
 				})

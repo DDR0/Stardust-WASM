@@ -133,7 +133,7 @@ fn process_particle<ParticleGetter: Fn(i32, i32) -> Option<ParticleEnum<'static>
 				}
 			},
 			3 => {
-				for iteration in 0..prng(4832 + y, x, global_tick as u32)/3334 {
+				for iteration in 0..=prng(4832 + y, x, global_tick as u32)/3334 {
 					let directions: [i32; 3] = match prng(x, y, global_tick as u32) {
 						0..3333 =>     [-1,  1,  0],
 						3333..5000 =>  [ 0, -1,  1],
@@ -157,7 +157,6 @@ fn process_particle<ParticleGetter: Fn(i32, i32) -> Option<ParticleEnum<'static>
 							}
 						}
 					}
-					break;
 				}
 			},
 			_ => panic!("unknown particle type")

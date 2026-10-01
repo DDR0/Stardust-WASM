@@ -115,7 +115,7 @@ fn process_particle<ParticleGetter: Fn(i32, i32) -> Option<ParticleEnum<'static>
 				for directions in directions {
 					if let Some(target) = try_acquire(x+directions, y+1) {
 						if target.r#type() == 0 { //TODO: Maybe something more general than type? Weight?
-							primary.swap(target);
+							primary.swap(&target);
 							//js::log(format_args!("local tick: {} → {}", primary.tick(), local_tick));
 							target.set_tick(local_tick);
 							break;

@@ -43,7 +43,7 @@ pub trait ParticleTrait {
 	fn set_scratch_a(&self, target: u64);
 	fn set_scratch_b(&self, target: u64);
 	
-	fn swap(&self, target: impl ParticleTrait) {
+	fn swap(&self, target: &impl ParticleTrait) {
 		swap_fields!(self, target,
 			(r#type, set_type),
 			(tick, set_tick),
@@ -213,7 +213,7 @@ impl<'world> ParticleTrait for ParticleEnum<'world> {
 	#[inline(always)] fn set_scratch_a(&self, target: u64) {match self { ParticleEnum::Live(p) => p.set_scratch_a(target), ParticleEnum::Inert(p) => p.set_scratch_a(target) }}
 	#[inline(always)] fn set_scratch_b(&self, target: u64) {match self { ParticleEnum::Live(p) => p.set_scratch_b(target), ParticleEnum::Inert(p) => p.set_scratch_b(target) }}
 	
-	fn swap(&self, target: impl ParticleTrait) {
+	fn swap(&self, target: &impl ParticleTrait) {
 		match self {
 			ParticleEnum::Live(s) => s.swap(target),
 			ParticleEnum::Inert(s) => s.swap(target),

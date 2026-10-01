@@ -19,9 +19,9 @@ use core::sync::atomic::Ordering;
 #[repr(i32)]
 enum WorkerStates {
 	Idle = 0,
-	//Queued = 1, only set in js
+	_Queued = 1, //only set in js
 	Running = 2,
-	//Crashed = 3, only set in js
+	_Crashed = 3, //only set in js
 }
 
 #[inline]

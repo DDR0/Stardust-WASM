@@ -103,16 +103,16 @@ pub extern "C" fn run(worker_id: i32) {
 		.store(WorkerStates::Idle as i32, Ordering::Release);
 }
 
-fn process_particle<ParticleGetter: Fn(i32, i32) -> Option<ParticleEnum<'static>>>(x: i32, y: i32, try_acquire: ParticleGetter) {
+fn process_particle<ParticleGetter: Fn(i32, i32) -> Option<ParticleEnum<'static>>>(mut x: i32, mut y: i32, try_acquire: ParticleGetter) {
 	let world = get_world();
 	let global_tick = world.global_tick.load(Ordering::Relaxed);
 	let local_tick = global_tick as u8;
 	
-	if let Some(primary) = try_acquire(x,y) {
+	if let Some(mut primary) = try_acquire(x,y) {
 		if primary.tick() == local_tick { return; } //Already processed but moved.
 		match primary.r#type() {
-			0 | 1 => { return; },
-			2 => {
+			0 | 1 => { return; }, //void, wall
+			2 => { //dust
 				// Choose a sequence of X directions to try moving in before staying still.
 				let directions: [i32; 3] = match prng(x, y, global_tick as u32) {
 					0..3333 =>     [-1,  1,  0],
@@ -123,7 +123,7 @@ fn process_particle<ParticleGetter: Fn(i32, i32) -> Option<ParticleEnum<'static>
 				};
 				for directions in directions {
 					if let Some(target) = try_acquire(x+directions, y+1) {
-						if target.r#type() == 0 { //TODO: Maybe something more general than type? Weight?
+						if target.r#type() == 0 || target.r#type() == 3 { //TODO: Maybe something more general than type? Weight?
 							primary.swap(&target);
 							//js::log(format_args!("local tick: {} → {}", primary.tick(), local_tick));
 							target.set_tick(local_tick);
@@ -132,6 +132,32 @@ fn process_particle<ParticleGetter: Fn(i32, i32) -> Option<ParticleEnum<'static>
 					}
 				}
 			},
+			3 => {
+				for iteration in 0..prng(x, y, global_tick as u32)/3334 {
+					let directions: [i32; 3] = match prng(x, y, global_tick as u32) {
+						0..3333 =>     [-1,  1,  0],
+						3333..5000 =>  [ 0, -1,  1],
+						5000..6666 =>  [ 0,  1, -1],
+						6666..10000 => [ 1, -1,  0],
+						_ => unreachable!("Bad PRNG return value."),
+					};
+					for directions in directions {
+						let next_x = x + directions;
+						let next_y = y - if iteration == 0 && prng(x, y, global_tick as u32) < 2000 { 1 } else { 0 };
+						if let Some(target) = try_acquire(next_x, next_y) {
+							if target.r#type() == 0 { //TODO: Maybe something more general than type? Weight?
+								primary.swap(&primary);
+								//js::log(format_args!("local tick: {} → {}", primary.tick(), local_tick));
+								target.set_tick(local_tick);
+								primary = target;
+								x = next_x;
+								y = next_y;
+								break;
+							}
+						}
+					}
+				}
+			}
 			_ => panic!("unknown particle type")
 		}	
 	}

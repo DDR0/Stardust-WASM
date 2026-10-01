@@ -133,7 +133,7 @@ fn process_particle<ParticleGetter: Fn(i32, i32) -> Option<ParticleEnum<'static>
 				}
 			},
 			3 => {
-				for iteration in 0..prng(x, y, global_tick as u32)/3334 {
+				for iteration in 0..prng(4832 + y, x, global_tick as u32)/3334 {
 					let directions: [i32; 3] = match prng(x, y, global_tick as u32) {
 						0..3333 =>     [-1,  1,  0],
 						3333..5000 =>  [ 0, -1,  1],
@@ -141,9 +141,10 @@ fn process_particle<ParticleGetter: Fn(i32, i32) -> Option<ParticleEnum<'static>
 						6666..10000 => [ 1, -1,  0],
 						_ => unreachable!("Bad PRNG return value."),
 					};
-					for directions in directions {
-						let next_x = x + directions;
-						let next_y = y - if iteration == 0 && prng(x, y, global_tick as u32) < 2000 { 1 } else { 0 };
+					//js::log(format_args!("dir: {}→{}", prng(548024 + x, y, global_tick as u32), directions[0]));
+					for direction in directions {
+						let next_x = x + direction;
+						let next_y = y - if iteration == 0 && prng(76112 + x, y, global_tick as u32) < 2000 { 1 } else { 0 };
 						if let Some(target) = try_acquire(next_x, next_y) {
 							if target.r#type() == 0 { //TODO: Maybe something more general than type? Weight?
 								primary.swap(&target);
@@ -156,6 +157,7 @@ fn process_particle<ParticleGetter: Fn(i32, i32) -> Option<ParticleEnum<'static>
 							}
 						}
 					}
+					break;
 				}
 			},
 			_ => panic!("unknown particle type")

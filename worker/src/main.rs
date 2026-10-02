@@ -142,11 +142,11 @@ fn process_particle<ParticleGetter: Fn(i32, i32) -> Option<ParticleEnum<'static>
 						_ => unreachable!("Bad PRNG return value."),
 					};
 					//js::log(format_args!("dir: {}→{}", prng(548024 + x, y, global_tick as u32), directions[0]));
-					for direction in directions {
+					for (index, direction) in directions.iter().enumerate() {
 						let next_x = x + direction;
 						let next_y = y - if iteration == 0 && prng(76112 + x, y, global_tick as u32) < 2000 { 1 } else { 0 };
 						if let Some(target) = try_acquire(next_x, next_y) {
-							if target.r#type() == 0 { //TODO: Maybe something more general than type? Weight?
+							if target.r#type() == 0 || (target.r#type() == 3 && index + 1 == directions.len()) { //Allow gas to displace itself if no free room otherwise, to give the appearance of brownian motion. //TODO: Maybe something more general than type? Weight?
 								primary.swap(&target);
 								//js::log(format_args!("local tick: {} → {}", primary.tick(), local_tick));
 								target.set_tick(local_tick);

@@ -123,10 +123,13 @@ fn process_particle<ParticleGetter: Fn(i32, i32) -> Option<ParticleEnum<'static>
 				};
 				for directions in directions {
 					if let Some(target) = try_acquire(x+directions, y+1) {
-						if target.r#type() == 0 || target.r#type() == 3 { //TODO: Maybe something more general than type? Weight?
+						let t_type = target.r#type();
+						let t_tick = target.tick();
+						if (t_type == 0 || t_type == 3) && t_tick != local_tick { //TODO: Maybe something more general than type? Weight?
+							primary.set_tick(local_tick);
+							target.set_tick(local_tick);
 							primary.swap(&target);
 							//js::log(format_args!("local tick: {} → {}", primary.tick(), local_tick));
-							target.set_tick(local_tick);
 							break;
 						}
 					}
@@ -146,10 +149,12 @@ fn process_particle<ParticleGetter: Fn(i32, i32) -> Option<ParticleEnum<'static>
 						let next_x = x + direction;
 						let next_y = y - if iteration == 0 && prng(76112 + x, y, global_tick as u32) < 2000 { 1 } else { 0 };
 						if let Some(target) = try_acquire(next_x, next_y) {
-							if target.r#type() == 0 || (target.r#type() == 3 && index + 1 == directions.len()) { //Allow gas to displace itself if no free room otherwise, to give the appearance of brownian motion. //TODO: Maybe something more general than type? Weight?
-								primary.swap(&target);
-								//js::log(format_args!("local tick: {} → {}", primary.tick(), local_tick));
+							let t_type = target.r#type();
+							let t_tick = target.tick();
+							if (t_type == 0 || (t_type == 3 && index + 1 == directions.len())) && t_tick != local_tick { //Allow gas to displace itself if no free room otherwise, to give the appearance of brownian motion. //TODO: Maybe something more general than type? Weight?
+								primary.set_tick(local_tick);
 								target.set_tick(local_tick);
+								primary.swap(&target);
 								primary = target;
 								x = next_x;
 								y = next_y;

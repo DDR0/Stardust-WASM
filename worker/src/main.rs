@@ -8,7 +8,7 @@ mod world;
 
 use js::*;
 use particle::{Particle, InertParticle, ParticleTrait, ParticleEnum};
-use prng::prng;
+use prng::{prng, ShuffledRangeIterator};
 use world::World;
 
 use core::cmp;
@@ -86,17 +86,12 @@ pub extern "C" fn run(worker_id: i32) {
 	};
 	
 	let global_tick = world.global_tick.load(Ordering::Relaxed);
-	let particle_indices = chunk_start..chunk_end;
-	if global_tick % 2 == 0 {
-		for index in particle_indices {
-			let (x, y) = i_to_xy(index as usize);
-			process_particle(x, y, try_acquire)
-		}
-	} else {
-		for index in particle_indices.rev() {
-			let (x, y) = i_to_xy(index as usize);
-			process_particle(x, y, try_acquire)
-		}
+	for index in ShuffledRangeIterator::new(
+		chunk_start as usize .. chunk_end as usize,
+		chunk_start as usize + global_tick as usize
+	) {
+		let (x, y) = i_to_xy(index as usize);
+		process_particle(x, y, try_acquire)
 	}
 	
 	world.worker_statuses[worker_index as usize]

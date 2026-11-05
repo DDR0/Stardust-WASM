@@ -28,6 +28,7 @@ fi
 
 if [[ $1 == *release ]]; then
 	cargo build --target=wasm32-unknown-unknown -Zbuild-std --profile release
+	cp target/wasm32-unknown-unknown/release/stardust-worker.wasm sim.wasm #TODO: Test this.
 	exit 0
 fi
 

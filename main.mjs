@@ -213,11 +213,15 @@ bindDisplayTo($("#stardust-game"), {
 		createParticle(x, y, {
 			__proto__: null, 
 			type, 
-			colour: type === 0 ? 0xFF000000 //AABBGGRR
+			colour
+				: type === 0 ? 0xFF000000 //AABBGGRR
 				: type === 1 ? darkenABGRRandomlyByChannel(0xFFAAAAAA)
 				: type === 2 ? darkenABGRRandomlyByChannel(0XFF9AD1E8)
 				: type === 3 ? darkenABGRRandomlyByChannel(0xEEFFFFFF)
+				: type === 4 ? [0xFFFFFFFF, 0xFFACFFFF, 0xFF50C8EC, 0xFF0B90F2, 0xFF0B57F2, 0xFF0B2FF2, 0xFF0B550B].sort(()=>Math.random()-0.5)[0]
 				: 0xFF0000FF, //"error red"
+				temperature: type !== 4 ? 218 : 22,
+				scratchA: BigInt(type !== 4 ? 0 : 40 + Math.floor(Math.random()*20)),
 		})
 	},
 	line: (x1, y1, x2, y2, radius, type) => {
@@ -255,7 +259,10 @@ bindDisplayTo($("#stardust-game"), {
 								: type === 1 ? darkenABGRRandomlyByChannel(0xFFAAAAAA)
 								: type === 2 ? (Math.random() < 0.005 ? darkenABGRRandomlyByChannel(0XFF2F100A, 8) : darkenABGRRandomlyByChannel(0XFF9AD1E8, 16)) 
 								: type === 3 ? darkenABGRRandomlyByChannel(0xEEFFFFFF)
+								: type === 4 ? [0xFFFFFFFF, 0xFFACFFFF, 0xFF50C8EC, 0xFF0B90F2, 0xFF0B57F2, 0xFF0B2FF2, 0xFF0B550B].sort(()=>Math.random()-0.5)[0]
 								: 0xFF0000FF, //"error red"
+								temperature: type !== 4 ? 218 : 22,
+								scratchA: BigInt(type !== 4 ? 0 : 40 + Math.floor(Math.random()*20)),
 						})
 					}
 				}

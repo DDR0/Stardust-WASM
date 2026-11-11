@@ -38,27 +38,27 @@ pub extern "C" fn run(worker_id: i32) {
 	let worker_index = worker_id as u32 - 1;
 	let world = get_world();
 	//_log_num(world as *const World as usize);
-	
+
 	//We're not using global_lock any more, and for recoverability we're also not doing the main loop in Rust because it keeps crashing on Chrome.
 	//_log_num(&world.global_lock as *const AtomicI32 as usize);
 	//wait_for((&world.global_lock as *const AtomicI32 as usize).try_into().unwrap(), 0); //WASM is at the moment guaranteed to only have u32 pointers, so this unwrap should always succeed as per the spec.
-	
+
 	world.worker_statuses[worker_index as usize]
 		.store(WorkerStates::Running as i32, Ordering::Release);
-	
+
 	let world_width = world.simulation_window[2] - world.simulation_window[0];
 	let world_height = world.simulation_window[3] - world.simulation_window[1];
 	let total_pixels = world_width * world_height;
-	
+
 	let mut chunk_size = total_pixels / world.total_workers;
 	if chunk_size * world.total_workers < total_pixels {
 		chunk_size += 1
 	}
 	let chunk_size = chunk_size;
-	
+
 	let chunk_start = chunk_size*(worker_index);
 	let chunk_end = cmp::min(chunk_start + chunk_size, total_pixels); //Total pixels may not divide evenly into number of worker cores.
-		
+
 	let try_acquire = |x: i32, y: i32| {
 		// First, if we're out of bounds, return a dummy particle. Currently expected to be air or wall.
 		if y < 0 {
@@ -73,10 +73,10 @@ pub extern "C" fn run(worker_id: i32) {
 		if y as u32 > world_height {
 			return Some(ParticleEnum::Inert(InertParticle::new(&world, world.wrapping_behaviour[2])))
 		}
-		
+
 		if let Some(particle) = Particle::try_acquire(
-			&world, 
-			worker_id, 
+			&world,
+			worker_id,
 			(world.simulation_window[0] + x as u32 + ((world.simulation_window[1] + y as u32) * world_width)) as usize
 		) {
 			Some(ParticleEnum::Live(particle))
@@ -84,7 +84,7 @@ pub extern "C" fn run(worker_id: i32) {
 			None
 		}
 	};
-	
+
 	let global_tick = world.global_tick.load(Ordering::Relaxed);
 	for index in ShuffledRangeIterator::new(
 		chunk_start as usize .. chunk_end as usize,
@@ -93,7 +93,7 @@ pub extern "C" fn run(worker_id: i32) {
 		let (x, y) = i_to_xy(index as usize);
 		process_particle(x, y, try_acquire)
 	}
-	
+
 	world.worker_statuses[worker_index as usize]
 		.store(WorkerStates::Idle as i32, Ordering::Release);
 }
@@ -102,7 +102,7 @@ fn process_particle<ParticleGetter: Fn(i32, i32) -> Option<ParticleEnum<'static>
 	let world = get_world();
 	let global_tick = world.global_tick.load(Ordering::Relaxed);
 	let local_tick = global_tick as u8;
-	
+
 	if let Some(mut primary) = try_acquire(x,y) {
 		if primary.tick() == local_tick { return; } //Already processed but moved.
 		match primary.r#type() {
@@ -130,7 +130,7 @@ fn process_particle<ParticleGetter: Fn(i32, i32) -> Option<ParticleEnum<'static>
 					}
 				}
 			},
-			3 => {
+			3 => { //gas
 				for iteration in 0..=prng(4832 + y, x, global_tick as u32)/3334 {
 					let directions: [i32; 3] = match prng(x, y, global_tick as u32) {
 						0..3333 =>     [-1,  1,  0],
@@ -159,8 +159,105 @@ fn process_particle<ParticleGetter: Fn(i32, i32) -> Option<ParticleEnum<'static>
 					}
 				}
 			},
+			4 => { //fire
+				primary.set_tick(local_tick);
+				
+				type Colour = u32; //abgr
+				const FIRE_COLOURS: [Colour; 7] = [
+					0xFFFFFFFF, //pure white
+					0xFFACFFFF, //warm white
+					0xFF50C8EC, //yellow
+					0xFF0B90F2, //light orange
+					0xFF0B2FF2, //light red
+					0xFF0B57F2, //dark orange
+					0xFF0B550B, //dark red
+				];
+				
+				let rng = prng(x, y, global_tick as u32);
+				
+				if primary.scratch_a() == 0 {
+					primary.set_type(0);
+					primary.set_colour(0);
+					return;
+				} else {
+					let fuel_amount = primary.scratch_a() - 1;
+					primary.set_scratch_a(fuel_amount);
+					debug_assert!(FIRE_COLOURS.len() > 0, "Need at least 1 fire colour.");
+					primary.set_colour(FIRE_COLOURS[(FIRE_COLOURS.len() - 2 - fuel_amount as usize/10 + if rng < 5000 { 0 } else { 1 }).min(FIRE_COLOURS.len() - 1).max(0)]);
+				}
+				
+				type Offset = (i32, i32);
+				const ORTHOGONALS: [Offset; 4] = [          (0, -1),
+				                                  (-1, -0),          (1, -0),
+				                                            (0,  1),        ];
+				const DIAGONALS:   [Offset; 8] = [(-1, -1), (0, -1), (1, -1),
+				                                  (-1, -0),          (1, -0),
+				                                  (-1,  1), (0,  1), (1,  1)];
+				
+				const DIAGONAL_SPREAD_CHANCE: u32 = 7_071; //ie, 45_f64.to_radians().sin() * 10_000;
+				
+				let spread_diagonally = rng > DIAGONAL_SPREAD_CHANCE;
+				let directions: &[Offset] = if spread_diagonally { &DIAGONALS } else { &ORTHOGONALS };
+				
+				let transform_to_fire = |target: &ParticleEnum<'static>| {
+					target.set_type(4);
+					target.set_tick(local_tick);
+					target.set_temperature(218_f32.min(target.temperature() + 20_f32)); //218°C is how hot paper burns, seems like a good starting point
+					target.set_scratch_a((40 + rng%20) as u64); //burn time
+					target.set_colour(FIRE_COLOURS[rng as usize % FIRE_COLOURS.len()]);
+				};
+				
+				for (dx, dy) in directions {
+					if let Some(target) = try_acquire(x+dx, y+dy) {
+						let t_type = target.r#type();
+						if t_type == 2 { //dust or fire
+							transform_to_fire(&target);
+						}
+						
+						if t_type == 3 { //gas
+							transform_to_fire(&target);
+							for (dx2, dy2) in directions {
+								if let Some(target) = try_acquire(x+dx+dx2, y+dy+dy2) {
+									let t_type = target.r#type();
+									if t_type == 0 || t_type == 3 { //air or gas
+										transform_to_fire(&target);
+									}
+								}
+							}
+						}
+					}
+				}
+				
+				// Choose a sequence of X directions to try moving in before staying still.
+				let directions: [i32; 3] = match prng(x, y, global_tick as u32) {
+					0..3333 =>     [-1,  1,  0],
+					3333..5000 =>  [ 0, -1,  1],
+					5000..6666 =>  [ 0,  1, -1],
+					6666..10000 => [ 1, -1,  0],
+					_ => unreachable!("Bad PRNG return value."),
+				};
+				for directions in directions {
+					if let Some(target) = try_acquire(x+directions, y-1) { //mostly stolen from the dust; but falls upwards
+						let t_type = target.r#type();
+						let t_tick = target.tick();
+						if (t_type == 0) && t_tick != local_tick { //TODO: Maybe something more general than type? Weight?
+							primary.set_tick(local_tick);
+							target.set_tick(local_tick);
+							primary.swap(&target);
+							break;
+						}
+						if t_type == 4 {
+							primary.set_type(0);
+							primary.set_colour(0);
+							primary.set_temperature(0.0);
+							target.set_temperature(target.temperature() + primary.temperature()/5.0);
+							break;
+						}
+					}
+				}
+			},
 			_ => panic!("unknown particle type")
-		}	
+		}
 	}
 }
 

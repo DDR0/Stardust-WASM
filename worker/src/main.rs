@@ -50,14 +50,12 @@ pub extern "C" fn run(worker_id: i32) {
 	let world_height = world.simulation_window[3] - world.simulation_window[1];
 	let total_pixels = world_width * world_height;
 
-	let mut chunk_size = total_pixels / world.total_workers;
-	if chunk_size * world.total_workers < total_pixels {
-		chunk_size += 1
-	}
-	let chunk_size = chunk_size;
-
-	let chunk_start = chunk_size*(worker_index);
-	let chunk_end = cmp::min(chunk_start + chunk_size, total_pixels); //Total pixels may not divide evenly into number of worker cores.
+	//Balance inter-core coordination overhead with granularity.
+	//Note that this does introduce some linearity into our random-order processing,
+	//but hopefully the chunks are large enough that this doesn't matter.
+	const CHUNK_SUBSECTIONS: u32 = 6;
+	let total_chunks = world.total_workers * CHUNK_SUBSECTIONS;
+	let chunk_size = (total_pixels + total_chunks as u32 - 1) / total_chunks;
 
 	let try_acquire = |x: i32, y: i32| {
 		// First, if we're out of bounds, return a dummy particle. Currently expected to be air or wall.
@@ -86,12 +84,21 @@ pub extern "C" fn run(worker_id: i32) {
 	};
 
 	let global_tick = world.global_tick.load(Ordering::Relaxed);
-	for index in ShuffledRangeIterator::new(
-		chunk_start as usize .. chunk_end as usize,
-		chunk_start as usize + global_tick as usize
-	) {
-		let (x, y) = i_to_xy(index as usize);
-		process_particle(x, y, try_acquire)
+	loop {
+		let chunk = world.next_chunk.fetch_add(1, Ordering::Relaxed);
+		if chunk < 0 || chunk as u32 >= total_chunks {
+			break;
+		}
+		
+		let chunk_start = chunk as u32 * chunk_size;
+		let chunk_end = cmp::min(chunk_start + chunk_size, total_pixels); //Total pixels may not divide evenly into number of worker cores.
+		for index in ShuffledRangeIterator::new(
+			chunk_start as usize .. chunk_end as usize,
+			chunk_start as usize + global_tick as usize
+		) {
+			let (x, y) = i_to_xy(index as usize);
+			process_particle(x, y, try_acquire)
+		}
 	}
 
 	world.worker_statuses[worker_index as usize]

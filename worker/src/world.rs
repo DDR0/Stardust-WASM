@@ -10,6 +10,7 @@ pub struct World {
 	//Some global configuration.
 	pub global_lock: AtomicI32, //Global lock for all world data, so we can resize the world. Also acts as a "pause" button. Bool, but atomic operations like i32.
 	pub global_tick: AtomicI32, //Current global tick.
+	pub next_chunk: AtomicI32, //Next unprocessed chunk for the workers to grab. Reset to 0 before each tick increment.
 	pub worker_statuses: [AtomicI32; 248], //Used by workers, last one to finish increments tick.
 	pub total_workers: u32, //constant
 	pub simulation_window: [u32; 4], //x/y/width/height - protected by global_lock

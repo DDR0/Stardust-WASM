@@ -19,6 +19,7 @@ export const world = {
 	//TODO: Don't need global lock, since we can just not advance globalTick from the main thread which is the only place we need to lock it.
 	globalLock:        [Int32Array,   1], //Global lock for all world data, so we can resize the world. Also acts as a "pause" button. Bool, but atomic operations like i32.
 	globalTick:        [Int32Array,   1], //Current global tick.
+	nextChunk:         [Int32Array,   1], //Next unprocessed chunk for the workers to grab. Reset to 0 before each tick increment!
 	workerStatuses:    [Int32Array, 248], //Used by workers, last one to finish increments tick. i32 because that's what Atomics.waitAsync and friends takes, along with i64 which we don't need.
 	totalWorkers:      [Uint32Array,  1],
 	simulationWindow:  [Uint32Array,  4], //x1/y1/x2/y2 to run the simulation in.

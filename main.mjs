@@ -94,6 +94,7 @@ const simulate = (()=>{
 				return 0
 			} else {
 				//console.info('incremented frame')
+				Atomics.store(world.nextChunk, 0, 0) //Reset the chunk counter before waking workers.
 				world.workerStatuses.fill(1, 0, world.totalWorkers[0])
 				Atomics.add(world.globalTick, 0, 1)
 				performance.mark("notify simulation")

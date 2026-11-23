@@ -53,7 +53,7 @@ pub extern "C" fn run(worker_id: i32) {
 	//Balance inter-core coordination overhead with granularity.
 	//Note that this does introduce some linearity into our random-order processing,
 	//but hopefully the chunks are large enough that this doesn't matter.
-	const CHUNK_SUBSECTIONS: u32 = 6;
+	const CHUNK_SUBSECTIONS: u32 = 16;
 	let total_chunks = world.total_workers * CHUNK_SUBSECTIONS;
 	let chunk_size = (total_pixels + total_chunks as u32 - 1) / total_chunks;
 

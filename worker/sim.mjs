@@ -104,14 +104,14 @@ self.start = async (workerID, worldBackingBuffer, world) => {
 	
 	console.info(`${workerID}: tls: 0x${blockBase.toString(16)}, stack pointer: 0x${sim.__stack_pointer.value.toString(16)}`)
 
-	let now = () => performance.now()
+	const now = () => performance.now()
 	
 	let lastProcessedTick = -1
 	while (1) {
 		Atomics.wait(world.globalTick, 0, lastProcessedTick)
 		lastProcessedTick = world.globalTick[0]
 		
-		let wasmTime = now()
+		const wasmTime = now()
 		try {
 			sim.run(workerID)
 		} catch (e) {

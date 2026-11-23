@@ -90,12 +90,13 @@ const simulate = (()=>{
 	return Object.freeze({
 		tick: () => {
 			if (workersAreRunning()) {
-				//console.info('dropped frame')
+				performance.mark("dropped frame")
 				return 0
 			} else {
 				//console.info('incremented frame')
 				world.workerStatuses.fill(1, 0, world.totalWorkers[0])
 				Atomics.add(world.globalTick, 0, 1)
+				performance.mark("notify simulation")
 				Atomics.notify(world.globalTick, 0)
 				return world.globalTick[0]
 			}

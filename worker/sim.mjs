@@ -111,7 +111,19 @@ self.start = async (workerID, worldBackingBuffer, world) => {
 		Atomics.wait(world.globalTick, 0, lastProcessedTick)
 		lastProcessedTick = world.globalTick[0]
 		
-		const wasmTime = now()
+		performance.mark("simulation started", {
+			detail: {
+				devtools: {
+					dataType: "marker",
+					color: "secondary",
+					properties: [
+						["tick", world.globalTick[0]],
+						["workerID", workerID],
+					],
+				},
+			},
+		})
+		
 		try {
 			sim.run(workerID)
 		} catch (e) {
@@ -120,7 +132,18 @@ self.start = async (workerID, worldBackingBuffer, world) => {
 			break;
 		}
 		
-		//console.info(`${workerID}: wasm time: ${(now()-wasmTime).toFixed(2)}ms`)
+		performance.mark("simulation finished", {
+			detail: {
+				devtools: {
+					dataType: "marker",
+					color: "tertiary",
+					properties: [
+						["tick", world.globalTick[0]],
+						["workerID", workerID],
+					],
+				},
+			},
+		})
 	}
 	
 }
